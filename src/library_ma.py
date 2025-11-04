@@ -1,5 +1,19 @@
-from .extension import ma
+from src.extension import ma
+from src.model import Accounts
 
-class UserSchema(ma.Schema):
+class AccountSchema(ma.SQLAlchemySchema):
     class Meta:
-        fields = ("uuid", "username", "phone", "email", "date_of_birth", "location", "google_id", "provider")
+        model = Accounts
+        load_instance = True  
+
+    account_id = ma.auto_field()
+    email = ma.auto_field()
+    full_name = ma.auto_field()
+    google_id = ma.auto_field()
+    provider = ma.auto_field()
+    phone = ma.auto_field()
+    date_of_birth =  ma.auto_field() 
+    gender = ma.auto_field()
+    address = ma.auto_field()
+    role_account = ma.auto_field()
+    is_active = ma.auto_field()
