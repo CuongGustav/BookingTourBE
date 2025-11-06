@@ -1,12 +1,14 @@
-from flask import request, jsonify
-from werkzeug.security import generate_password_hash
+from datetime import timedelta
+from flask import make_response, request, jsonify
+from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt_identity, jwt_required
+from werkzeug.security import generate_password_hash, check_password_hash
 from src.extension import db
 from src.library_ma import AccountSchema
 from src.model import Accounts, ProviderEnum, GenderEnum
 
 account_schema = AccountSchema()
 
-# Register account service
+# Register account 
 def register_account_service():
     data = request.get_json()
     if not data:
@@ -62,3 +64,59 @@ def register_account_service():
     db.session.commit()
 
     return jsonify({"message": "Đã đăng ký tài khoản thành công."}), 201
+
+# Login account user
+def login_account_user_service():
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"Message":"Dữ liệu không hợp lệ"}), 400
+
+    email = data.get("email")
+    password = data.get("password")
+
+    if not email or not password:
+        return jsonify({"message": "Thiếu thông tin"}), 400
+    
+    account = Accounts.query.filter_by(email=email).first()
+    if not account:
+        return jsonify({"message": "Email không tồn tại"}),404
+    if not account.check_password(password):
+        return jsonify({"message":"Mật khẩu không đúng"}), 401
+    if not account.is_active:
+        return jsonify({"message":"Tài khoản đã bị khóa"}), 403
+    
+    #Create JWT Token
+    access_token = create_access_token(
+        identity=account.account_id,
+        expires_delta=timedelta(hours=24),
+        additional_claims={
+            "role": account.role_account.value,
+            "provider": account.provider.value
+        }
+    )
+    refresh_token = create_refresh_token(identity=account.account_id)
+
+    resp = make_response({
+        "message": "Đăng nhập thành công",
+        "user": {
+            "account_id": account.account_id,
+            "email": account.email,
+            "full_name": account.full_name
+        }
+    })
+
+    #Save token in cookie 
+    resp.set_cookie("access_token", access_token, httponly=True, secure=False, samesite="Lax", max_age=7200)
+    resp.set_cookie("refresh_token", refresh_token, httponly=True, secure=False, samesite="Lax", max_age=604800)
+    return resp, 200
+
+#Get current user service
+@jwt_required()
+def get_current_user_service():
+    account_id = get_jwt_identity()
+    account = Accounts.query.get(account_id)
+    if not account:
+        return jsonify({"message": "Không tìm thấy tài khoản"}), 404
+    return account_schema.jsonify(account), 200
+    
