@@ -1,10 +1,11 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 from flask import make_response, request, jsonify
-from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt_identity, jwt_required
+from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt, get_jwt_identity, jwt_required
 from werkzeug.security import generate_password_hash, check_password_hash
 from src.extension import db
 from src.library_ma import AccountSchema
 from src.model import Accounts, ProviderEnum, GenderEnum
+from src.extension import redis_blocklist
 
 account_schema = AccountSchema()
 
@@ -107,9 +108,19 @@ def login_account_user_service():
     })
 
     #Save token in cookie 
-    resp.set_cookie("access_token", access_token, httponly=True, secure=False, samesite="Lax", max_age=7200)
+    resp.set_cookie("access_token", access_token, httponly=True, secure=False, samesite="Lax", max_age=86400)
     resp.set_cookie("refresh_token", refresh_token, httponly=True, secure=False, samesite="Lax", max_age=604800)
-    return resp, 200
+
+    return jsonify({
+        "message": "Đăng nhập thành công",
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "user": {
+            "account_id": account.account_id,
+            "email": account.email,
+            "full_name": account.full_name
+        }
+    }), 200
 
 #Get current user service
 @jwt_required()
@@ -120,3 +131,19 @@ def get_current_user_service():
         return jsonify({"message": "Không tìm thấy tài khoản"}), 404
     return account_schema.jsonify(account), 200
     
+@jwt_required()
+def logout_account_user_service():
+    jwt_data = get_jwt()
+    jti = jwt_data["jti"]
+    exp_timestamp = jwt_data["exp"]
+
+    now = datetime.utcnow()
+    seconds_until_exp = int(exp_timestamp - now.timestamp())
+
+    redis_blocklist.setex(jti, seconds_until_exp, "revoked")
+
+    resp = make_response(jsonify({"message": "Đăng xuất thành công"}), 200)
+    resp.set_cookie("access_token", "", expires=0)
+    resp.set_cookie("refresh_token", "", expires=0)
+
+    return resp
