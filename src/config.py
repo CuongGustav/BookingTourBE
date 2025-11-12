@@ -7,6 +7,7 @@ SQLALCHEMY_DATABASE_URI = os.getenv("DB_URL")
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 JWT_SECRET_KEY = os.getenv("FLASK_JWT_SECRET_KEY")
 REDIS_URL = os.getenv("REDIS_URL")
+
 # Add these JWT cookie configurations
 JWT_TOKEN_LOCATION = ["cookies"]
 JWT_COOKIE_SECURE = False  # Set to True in production with HTTPS

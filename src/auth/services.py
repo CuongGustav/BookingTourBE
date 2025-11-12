@@ -1,6 +1,7 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import make_response, request, jsonify
-from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt, get_jwt_identity, jwt_required
+from flask_jwt_extended import (create_access_token, create_refresh_token, get_jwt, get_jwt_identity, jwt_required, 
+                                set_access_cookies, set_refresh_cookies, unset_jwt_cookies)
 from werkzeug.security import generate_password_hash, check_password_hash
 from src.extension import db
 from src.library_ma import AccountSchema
@@ -107,20 +108,11 @@ def login_account_user_service():
         }
     })
 
-    #Save token in cookie 
-    resp.set_cookie("access_token", access_token, httponly=True, secure=False, samesite="Lax", max_age=86400)
-    resp.set_cookie("refresh_token", refresh_token, httponly=True, secure=False, samesite="Lax", max_age=604800)
+    # Set JWT cookie
+    set_access_cookies(resp, access_token, max_age=86400)
+    set_refresh_cookies(resp, refresh_token, max_age=604800)
 
-    return jsonify({
-        "message": "Đăng nhập thành công",
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "user": {
-            "account_id": account.account_id,
-            "email": account.email,
-            "full_name": account.full_name
-        }
-    }), 200
+    return resp, 200
 
 #Get current user service
 @jwt_required()
@@ -136,14 +128,30 @@ def logout_account_user_service():
     jwt_data = get_jwt()
     jti = jwt_data["jti"]
     exp_timestamp = jwt_data["exp"]
-
-    now = datetime.utcnow()
-    seconds_until_exp = int(exp_timestamp - now.timestamp())
+    seconds_until_exp = int(exp_timestamp - datetime.now(timezone.utc).timestamp())
 
     redis_blocklist.setex(jti, seconds_until_exp, "revoked")
+    refresh_token = request.cookies.get("refresh_token")
+    if refresh_token:
+        try:
+            decoded_refresh = get_jwt(refresh_token)
+            jti_refresh = decoded_refresh["jti"]
+            exp_refresh = decoded_refresh["exp"]
+            seconds_refresh = int(exp_refresh - datetime.utcnow().timestamp())
+            redis_blocklist.setex(jti_refresh, seconds_refresh, "revoked")
+        except Exception:
+            pass
 
-    resp = make_response(jsonify({"message": "Đăng xuất thành công"}), 200)
-    resp.set_cookie("access_token", "", expires=0)
-    resp.set_cookie("refresh_token", "", expires=0)
+    resp = make_response(jsonify({"message": "Đăng xuất thành công"}))
+    unset_jwt_cookies(resp)  # Delete cookie access + refresh
 
-    return resp
+    return resp, 200
+
+#Refresh token
+@jwt_required(refresh=True)
+def refresh_token_service():
+    identity = get_jwt_identity()
+    access_token = create_access_token(identity=identity, expires_delta=timedelta(hours=24))
+    resp = make_response(jsonify({"message": "Access token mới đã được cấp"}))
+    set_access_cookies(resp, access_token, max_age=86400)
+    return resp, 200

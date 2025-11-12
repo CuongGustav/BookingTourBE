@@ -12,6 +12,14 @@ def create_app(config_file="config.py"):
     "http://127.0.0.1:3000"
     ], allow_headers=["Content-Type", "Authorization"])
 
+    # JWT cookie config
+    app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
+    app.config["JWT_COOKIE_SECURE"] = False  # False vì dev local (HTTP)
+    app.config["JWT_COOKIE_SAMESITE"] = "Lax" # Hoặc "None" nếu cần cross-site
+    app.config["JWT_ACCESS_COOKIE_PATH"] = "/"
+    app.config["JWT_REFRESH_COOKIE_PATH"] = "/auth/refresh"
+    app.config["JWT_COOKIE_CSRF_PROTECT"] = False
+
     db.init_app(app)
     jwt.init_app(app)
     ma.init_app(app)
