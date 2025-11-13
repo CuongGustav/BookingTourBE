@@ -13,3 +13,4 @@ class AccountSchema(ma.SQLAlchemySchema):
     date_of_birth =  ma.auto_field() 
     gender = ma.auto_field()
     address = ma.auto_field()
+    role_account = ma.auto_field()
