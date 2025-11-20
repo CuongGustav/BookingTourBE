@@ -1,13 +1,16 @@
 from datetime import datetime, timedelta, timezone
 from functools import wraps
-from flask import make_response, request, jsonify
+from flask import make_response, request, jsonify, redirect
 from flask_jwt_extended import (create_access_token, create_refresh_token, get_jwt, get_jwt_identity, jwt_required, 
                                 set_access_cookies, set_refresh_cookies, unset_jwt_cookies)
 from werkzeug.security import generate_password_hash, check_password_hash
-from src.extension import db
+from src.extension import db, redis_blocklist
 from src.library_ma import AccountSchema
 from src.model import Accounts, ProviderEnum, GenderEnum
 from src.extension import redis_blocklist
+import os
+import requests
+import certifi
 
 account_schema = AccountSchema()
 
@@ -286,3 +289,100 @@ def logout_account_service():
     unset_jwt_cookies(resp)  # Delete cookie access + refresh
 
     return resp, 200
+
+
+# Google OAuth Services
+IS_PRODUCTION = os.getenv("FLASK_ENV") == "production"
+
+# goole login service
+def google_login_service():
+    google_auth_url = "https://accounts.google.com/o/oauth2/v2/auth"
+    params = {
+        "client_id": os.getenv("GOOGLE_CLIENT_ID"),
+        "redirect_uri": os.getenv("GOOGLE_REDIRECT_URI"),
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "offline",
+        "prompt": "consent"
+    }
+    auth_url = f"{google_auth_url}?client_id={params['client_id']}&redirect_uri={params['redirect_uri']}&response_type={params['response_type']}&scope={params['scope']}&access_type={params['access_type']}&prompt={params['prompt']}"
+    return jsonify({"auth_url": auth_url}), 200
+
+# google callback service
+def google_callback_service():
+    code = request.args.get("code")
+    if not code:
+        return jsonify({"message": "Không nhận được mã xác thực từ Google"}), 400
+
+    token_url = "https://oauth2.googleapis.com/token"
+    token_data = {
+        "code": code,
+        "client_id": os.getenv("GOOGLE_CLIENT_ID"),
+        "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
+        "redirect_uri": os.getenv("GOOGLE_REDIRECT_URI"),
+        "grant_type": "authorization_code"
+    }
+
+    try:
+        token_response = requests.post(token_url, data=token_data, verify=IS_PRODUCTION)
+        token_response.raise_for_status()
+        tokens = token_response.json()
+        access_token = tokens.get("access_token")
+
+        user_info_url = "https://www.googleapis.com/oauth2/v2/userinfo"
+        headers = {"Authorization": f"Bearer {access_token}"}
+        user_info_response = requests.get(user_info_url, headers=headers, verify=IS_PRODUCTION)
+        user_info_response.raise_for_status()
+        user_info = user_info_response.json()
+
+        google_id = user_info.get("id")
+        email = user_info.get("email")
+        full_name = user_info.get("name")
+
+        if not email or not google_id:
+            return jsonify({"message": "Không thể lấy thông tin từ Google"}), 400
+
+        account = Accounts.query.filter_by(email=email).first()
+        if account:
+            if not account.google_id:
+                account.google_id = google_id
+                if account.provider == ProviderEnum.LOCAL.value:
+                    account.provider = ProviderEnum.GOOGLE.value
+                db.session.commit()
+        else:
+            random_password = generate_password_hash(os.urandom(24).hex())
+            account = Accounts(
+                email=email,
+                password_hash=random_password,
+                full_name=full_name,
+                google_id=google_id,
+                provider=ProviderEnum.GOOGLE.value,
+                role_account="qcuser",
+                is_active=True
+            )
+            db.session.add(account)
+            db.session.commit()
+
+        jwt_access_token = create_access_token(
+            identity=account.account_id,
+            expires_delta=timedelta(hours=24),
+            additional_claims={
+                "role": account.role_account.value,
+                "provider": account.provider.value
+            }
+        )
+        jwt_refresh_token = create_refresh_token(
+            identity=account.account_id,
+            expires_delta=timedelta(days=7)
+        )
+
+        resp = make_response(redirect("http://127.0.0.1:3000?login=success"))
+        set_access_cookies(resp, jwt_access_token, max_age=86400)
+        set_refresh_cookies(resp, jwt_refresh_token, max_age=604800)
+        return resp
+
+    except requests.exceptions.RequestException as e:
+        return jsonify({"message": f"Lỗi SSL khi kết nối với Google: {str(e)}"}), 500
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"Lỗi xử lý đăng nhập: {str(e)}"}), 500
