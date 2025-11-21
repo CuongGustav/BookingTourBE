@@ -5,8 +5,8 @@ from flask_jwt_extended import (create_access_token, create_refresh_token, get_j
                                 set_access_cookies, set_refresh_cookies, unset_jwt_cookies)
 from werkzeug.security import generate_password_hash, check_password_hash
 from src.extension import db, redis_blocklist
-from src.library_ma import AccountSchema
-from src.model import Accounts, ProviderEnum, GenderEnum
+from src.marshmallow.library_ma_account import AccountSchema
+from src.model.model_account import Accounts, ProviderEnum, GenderEnum
 from src.extension import redis_blocklist
 import os
 import requests
@@ -28,8 +28,9 @@ def register_account_service():
     address = data.get("address")
     provider_raw = data.get("provider", "local")  
     gender_raw = data.get("gender")
+    cccd = data.get("cccd")
 
-    if not email or not password or not full_name:
+    if not email or not password or not full_name or not cccd:
         return jsonify({"message": "Thiếu thông tin bắt buộc"}), 400
 
     # check email
@@ -38,7 +39,9 @@ def register_account_service():
     # check phone
     if phone and Accounts.query.filter_by(phone=phone).first():
         return jsonify({"message": "Số điện thoại đã được đăng ký"}), 400
-
+    # check cccd
+    if cccd and Accounts.query.filter_by(cccd=cccd).first():
+        return jsonify({"message": "CCCD/CMND đã được đăng ký"}), 400
     # Convert provider string sang Enum
     try:
         provider_enum = ProviderEnum(provider_raw)
@@ -63,7 +66,8 @@ def register_account_service():
         phone=phone,
         date_of_birth=date_of_birth,
         gender=gender_enum,
-        address=address
+        address=address,
+        cccd=cccd,
     )
 
     db.session.add(new_account)
@@ -289,7 +293,6 @@ def logout_account_service():
     unset_jwt_cookies(resp)  # Delete cookie access + refresh
 
     return resp, 200
-
 
 # Google OAuth Services
 IS_PRODUCTION = os.getenv("FLASK_ENV") == "production"

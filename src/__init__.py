@@ -2,6 +2,7 @@ from flask import Flask
 from flask_cors import CORS
 from src.extension import db, ma, jwt, redis_blocklist
 from src.auth.controller import auth
+from src.account.controller import account
 
 def create_app(config_file="config.py"):
     app = Flask(__name__)
@@ -28,6 +29,7 @@ def create_app(config_file="config.py"):
         db.create_all()
 
     app.register_blueprint(auth, url_prefix="/auth")
+    app.register_blueprint(account, url_prefix="/account")  
 
     #JWT revoke check with Redis
     @jwt.token_in_blocklist_loader
