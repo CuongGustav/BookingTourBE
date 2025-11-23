@@ -3,8 +3,7 @@ from enum import Enum as PyEnum
 from sqlalchemy import Column, String, Date, Text, Boolean, TIMESTAMP, func, Enum as SAEnum
 from sqlalchemy.orm import relationship
 from src.extension import db
-from werkzeug.security import check_password_hash
-
+from werkzeug.security import check_password_hash, generate_password_hash
 
 class GenderEnum(PyEnum):
     MALE = "male"
@@ -76,3 +75,5 @@ class Accounts(db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+    def set_password(self, new_password):
+        self.password_hash = generate_password_hash(new_password)

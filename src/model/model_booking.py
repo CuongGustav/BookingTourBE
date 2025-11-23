@@ -31,6 +31,7 @@ class Bookings(db.Model):
     contact_email = Column(String(255), nullable=False)
     contact_phone = Column(String(10), nullable=False)
     special_request = Column(Text)
+    # SAEnum dùng để mapping Python Enum với cột trong database
     status = Column(
         SAEnum(BookingStatusEnum, values_callable=lambda obj: [e.value for e in obj], native_enum=False),
         default=BookingStatusEnum.PENDING.value,
@@ -41,7 +42,7 @@ class Bookings(db.Model):
     created_at = Column(TIMESTAMP, server_default=func.now(), nullable=False)
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    # String relationships - an toàn tuyệt đối
+    # back_populates để thiết lập quan hệ hai chiều, cho phép truy vấn ngươpc lại từ bảng liên quan
     account = relationship("Accounts", back_populates="bookings")
     tour = relationship("Tours", back_populates="bookings")
     schedule = relationship("TourSchedules", back_populates="bookings")
