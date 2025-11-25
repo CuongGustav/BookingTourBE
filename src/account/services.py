@@ -1,11 +1,12 @@
 from flask import jsonify, request
-from src.marshmallow.library_ma_account import AccountInfoSchema
+from src.marshmallow.library_ma_account import AccountInfoSchema, AccountListSchema
 from src.model.model_account import Accounts
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from src.extension import db
-from datetime import datetime
+from src.common.decorators import require_role
 
 account_info_schema = AccountInfoSchema()
+account_list_schema = AccountListSchema(many=True)
 
 #get info account by account_id
 @jwt_required()
@@ -77,3 +78,14 @@ def update_information_account_service():
     except Exception as e:
         db.session.rollback()
         return jsonify({"message": "Cập nhật thất bại, vui lòng thử lại" + e}), 500
+    
+#get all account
+@require_role('qcadmin')
+def get_all_account_service():
+    try:
+        accounts = Accounts.query.order_by(Accounts.created_at.desc()).all()
+        if not accounts:
+            return jsonify ({"message":"Không có tài khoản nào", "data": []}), 200
+        return account_list_schema.dump(accounts),200
+    except Exception as e:
+        return jsonify({"message": "Lỗi hệ thống khi lấy danh sách tài khoản"}), 500

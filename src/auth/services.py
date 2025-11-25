@@ -10,7 +10,7 @@ from src.model.model_account import Accounts, ProviderEnum, GenderEnum
 from src.extension import redis_blocklist
 import os
 import requests
-import certifi
+from src.common.decorators import require_role
 
 account_schema = AccountSchema()
 
@@ -179,33 +179,6 @@ def refresh_token_service():
     set_access_cookies(resp, access_token, max_age=max_age)
     
     return resp, 200
-
-#Check role
-def require_role (required_role):
-    def wrapper (fn):
-        @wraps(fn)
-        @jwt_required()
-        def decorator(*args, **kwargs):
-            claims = get_jwt()
-            token_role = claims.get("role")
-            
-            if token_role != required_role:
-                return jsonify({"message": f"Yêu cầu quyền {required_role}"}), 403
-            
-            account_id = get_jwt_identity()
-            account = Accounts.query.get(account_id)
-
-            if not account:
-                return jsonify({"message": "Tài khoản không tồn tại"}), 404            
-            if not account.is_active:
-                return jsonify({"message": "Tài khoản đã bị khóa"}), 403            
-            if account.role_account.value != required_role:
-                return jsonify({"message": "Quyền không còn hợp lệ"}), 403
-            
-            kwargs['verified_account'] = account
-            return fn(*args, **kwargs)
-        return decorator
-    return wrapper
 
 #Login admin
 def login_account_admin_service():

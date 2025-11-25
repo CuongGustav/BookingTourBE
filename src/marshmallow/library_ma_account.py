@@ -36,3 +36,19 @@ class AccountInfoSchema(ma.SQLAlchemySchema):
 
     def get_tour_booked(self, obj):
         return Bookings.query.filter_by(account_id=obj.account_id, status='completed').count()
+    
+class AccountListSchema(ma.SQLAlchemySchema):
+    class Meta:
+        model = Accounts
+        load_instance = True  
+
+    account_id = ma.auto_field()
+    full_name = ma.auto_field()
+    email = ma.auto_field()
+    phone = ma.auto_field()
+    cccd = ma.auto_field()
+    gender = ma.auto_field()
+    address = ma.auto_field()
+    date_of_birth = ma.auto_field()
+    is_active = ma.auto_field()
+    created_at = ma.auto_field()
