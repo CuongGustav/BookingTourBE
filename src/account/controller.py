@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify
 from flask_jwt_extended import jwt_required
 from src.account.services import (get_all_information_account_service, change_password_service, update_information_account_service,
-                                  get_all_account_service)
+                                  get_all_account_service, get_account_by_uuid_admin_service, update_account_admin_service)
 
 account = Blueprint("account", __name__)
 
@@ -20,3 +20,11 @@ def update_information_account():
 @account.route("/admin/allaccount", methods=["GET"])
 def get_all_account():
     return get_all_account_service()
+
+@account.route("/admin/<string:account_id>", methods=["GET"])
+def get_account_by_account_id_admin(account_id):
+    return get_account_by_uuid_admin_service(account_id)
+
+@account.route("/admin/update", methods=["POST"])
+def update_account_admin():
+    return update_account_admin_service()

@@ -51,4 +51,5 @@ class AccountListSchema(ma.SQLAlchemySchema):
     address = ma.auto_field()
     date_of_birth = ma.auto_field()
     is_active = ma.auto_field()
+    role_account = ma.auto_field()
     created_at = ma.auto_field()

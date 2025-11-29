@@ -7,8 +7,9 @@ from src.common.decorators import require_role
 
 account_info_schema = AccountInfoSchema()
 account_list_schema = AccountListSchema(many=True)
+account_info_detail_schema = AccountListSchema()
 
-#get info account by account_id
+#get account by account_id
 @jwt_required()
 def get_all_information_account_service():
     account_id = get_jwt_identity()
@@ -88,4 +89,53 @@ def get_all_account_service():
             return jsonify ({"message":"Không có tài khoản nào", "data": []}), 200
         return account_list_schema.dump(accounts),200
     except Exception as e:
-        return jsonify({"message": "Lỗi hệ thống khi lấy danh sách tài khoản"}), 500
+        return jsonify({"message": f"Lỗi hệ thống khi lấy danh sách tài khoản: {str(e)}"}), 500
+    
+#get account by account_id admin
+@require_role('qcadmin')
+def get_account_by_uuid_admin_service(account_id):
+    if not account_id:
+        return jsonify({"message": "Thiếu thông tin account_id"}), 400
+
+    account = Accounts.query.filter_by(account_id=account_id).first()
+    if not account:
+        return jsonify({"message": "Không tìm thấy tài khoản"}), 404
+
+    return account_info_detail_schema.dump(account), 200
+
+#update account by admin
+@require_role('qcadmin')
+def update_account_admin_service():
+    data = request.get_json()
+    if not data:
+        return jsonify({"message":"Không có dữ liệu gửi lên"}),400
+    
+    account_id = data.get("account_id")
+    if not account_id:
+        return jsonify({"message": "Thiếu account_id"}),400
+    
+    account = Accounts.query.filter_by(account_id=account_id).first()
+    if not account:
+        return jsonify({"message": "Không tìm thấy tài khoản"}),404
+    
+    allowed_fields = {
+        "full_name", "email", "phone", "address", "gender", "cccd", "date_of_birth", "role", "status"
+    }
+    updated = False
+
+    for field in allowed_fields:
+        if field in data:
+            value = data[field]
+            if value is not None and str(value).strip() != "":
+                setattr(account, field, value)
+                updated = True
+
+    if not updated:
+        return jsonify({"message": "Không có thông tin nào được cập nhật"}), 400
+    
+    try:
+        db.session.commit()
+        return jsonify({"message": "Cập nhật thông tin tài khoản thành công"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"Cập nhật thất bại, vui lòng thử lại. Lỗi: {str(e)}"}), 500
