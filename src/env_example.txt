@@ -2,3 +2,6 @@ DB_URL=mysql+pymysql://root:your_password@localhost:3306/bookingtour
 FLASK_SECRET_KEY=supersecretkey
 FLASK_JWT_SECRET_KEY=yourkey
 REDIS_URL=redis://localhost:6379/0
+CLOUDINARY_CLOUD_NAME=yourkey
+CLOUDINARY_API_KEY=yourkey
+CLOUDINARY_API_SECRET=yourkey

@@ -1,4 +1,5 @@
 import os
+import cloudinary
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -21,3 +22,15 @@ JWT_COOKIE_DOMAIN = None  # Or set to "localhost" for local development
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID") 
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET") 
 GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
+
+#cloudinary
+CLOUDINARY_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
+CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
+CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
+
+cloudinary.config(
+    cloud_name = CLOUDINARY_NAME,
+    api_key = CLOUDINARY_API_KEY,
+    api_secret = CLOUDINARY_API_SECRET,
+    secure = True
+)
