@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import jsonify, request
 from src.marshmallow.library_ma_account import AccountInfoSchema, AccountListSchema
 from src.model.model_account import Accounts
@@ -80,7 +81,29 @@ def update_information_account_service():
         db.session.rollback()
         return jsonify({"message": "Cập nhật thất bại, vui lòng thử lại" + e}), 500
     
-#get all account
+#delete soft account user
+@jwt_required()
+def delete_soft_account_user_service():
+    account_id = get_jwt_identity()
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"message": "Không có dữ liệu gửi lên"}), 400
+
+    account = Accounts.query.filter_by(account_id=account_id).first()
+    if not account:
+        return jsonify({"message": "Không tìm thấy tài khoản"}), 404
+    
+    is_active = data.get("is_active")
+    if is_active is None:
+        return jsonify({"message": "Thiếu thông tin is_active"}), 400
+    account.is_active = bool(is_active)
+    account.updated_at = datetime.now()
+    db.session.commit()
+
+    return jsonify({"message": f"Tài khoản đã được xóa thành công"}), 200
+
+#get all account admin
 @require_role('qcadmin')
 def get_all_account_service():
     try:
@@ -119,7 +142,7 @@ def update_account_admin_service():
         return jsonify({"message": "Không tìm thấy tài khoản"}),404
     
     allowed_fields = {
-        "full_name", "email", "phone", "address", "gender", "cccd", "date_of_birth", "role", "status"
+        "full_name", "email", "phone", "address", "gender", "cccd", "date_of_birth", "role_account", "status", "is_active"
     }
     updated = False
 
@@ -139,3 +162,29 @@ def update_account_admin_service():
     except Exception as e:
         db.session.rollback()
         return jsonify({"message": f"Cập nhật thất bại, vui lòng thử lại. Lỗi: {str(e)}"}), 500
+    
+#delete soft admin
+@require_role('qcadmin')
+def delete_soft_account_admin_service():
+    data = request.get_json()
+    if not data:
+        return jsonify({"message":"Không có dữ liệu gửi lên"}),400
+
+    account_id = data.get("account_id")
+    if not account_id:
+        return jsonify({"message": "Thiếu account_id"}),400
+    
+    account = Accounts.query.filter_by(account_id=account_id).first()
+    if not account:
+        return jsonify({"message": "Không tìm thấy tài khoản"}),404
+    
+    is_active = data.get("is_active")
+    if is_active is None:
+        return jsonify({"message": "Thiếu thông tin is_active"}), 400
+    account.is_active = bool(is_active)
+    account.updated_at = datetime.now()
+
+    db.session.commit()
+
+    status_msg = "kích hoạt" if account.is_active else "khóa/xóa mềm"
+    return jsonify({"message": f"Tài khoản đã được {status_msg} thành công"}), 200

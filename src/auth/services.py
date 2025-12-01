@@ -137,6 +137,7 @@ def login_account_user_service():
 
 #Get current user service
 @jwt_required()
+@require_role('qcuser')
 def get_current_user_service():
     account_id = get_jwt_identity()
     account = Accounts.query.get(account_id)
@@ -338,6 +339,9 @@ def google_callback_service():
             )
             db.session.add(account)
             db.session.commit()
+
+        if not account.is_active:
+            return redirect("http://127.0.0.1:3000/auth/login?error=locked")
 
         jwt_access_token = create_access_token(
             identity=account.account_id,
