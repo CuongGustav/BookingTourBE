@@ -27,6 +27,6 @@ def update_destination_admin(destination_id):
     return update_destination_admin_service(destination_id)
 
 #delete destination admin
-@destination.route("/admin/delete/<string:destination_id>", methods=["PUT"])
+@destination.route("/admin/delete/<string:destination_id>", methods=["DELETE"])
 def delete_destination_admin(destination_id):
     return delete_destination_admin_service(destination_id)
