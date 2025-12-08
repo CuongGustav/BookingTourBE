@@ -20,3 +20,17 @@ class DestinationSchema(ma.SQLAlchemySchema):
 
 destination_schema = DestinationSchema()
 destinations_schema = DestinationSchema(many=True)
+
+class DestinationRegionSchema(ma.SQLAlchemySchema):
+    class Meta:
+        model = Destinations
+        load_instance = True
+        include_fk = True
+
+    destination_id = ma.auto_field()
+    name = ma.auto_field()
+    image_url = ma.auto_field()
+    image_public_id = ma.auto_field()
+    image_local_path = ma.auto_field()
+
+destinationRegions_schema = DestinationRegionSchema(many=True)

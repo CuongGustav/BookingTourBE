@@ -1,7 +1,7 @@
 from flask import Blueprint
 from src.destination.services import (get_cloudinary_usage_service, add_destination_service, get_all_destination_admin_service,
                                       get_destination_by_uuid_admin_service, update_destination_admin_service,
-                                      delete_destination_admin_service)
+                                      delete_destination_admin_service, get_all_destination_by_region_service)
 
 destination = Blueprint("destination", __name__)
 
@@ -30,3 +30,8 @@ def update_destination_admin(destination_id):
 @destination.route("/admin/delete/<string:destination_id>", methods=["DELETE"])
 def delete_destination_admin(destination_id):
     return delete_destination_admin_service(destination_id)
+
+#get all destination by region guest
+@destination.route("/allByRegion", methods=["GET"])
+def get_all_destination_by_region():
+    return get_all_destination_by_region_service()

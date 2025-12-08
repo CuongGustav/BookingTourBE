@@ -7,7 +7,7 @@ from flask import current_app, jsonify, request
 from werkzeug.utils import secure_filename
 from src.extension import db
 from src.model.model_destination import Destinations
-from src.marshmallow.library_ma_destination import destination_schema, destinations_schema
+from src.marshmallow.library_ma_destination import destination_schema, destinations_schema, destinationRegions_schema
 from src.common.decorators import require_role
 
 #check cloudinary usege
@@ -124,11 +124,11 @@ def get_all_destination_admin_service ():
 @require_role('qcadmin')
 def get_destination_by_uuid_admin_service (destination_id):
     if not destination_id:
-        return jsonify({"message": "Thiếu thông tin account_id"}), 400
+        return jsonify({"message": "Thiếu thông tin destination_id"}), 400
     
     destination = Destinations.query.filter_by(destination_id=destination_id).first()
     if not destination:
-        return jsonify({"message": "Không tìm thấy tài khoản"}), 404
+        return jsonify({"message": "Không tìm thấy điểm đến"}), 404
     
     return destination_schema.dump(destination), 200
     
@@ -286,3 +286,23 @@ def delete_destination_admin_service(destination_id):
             "message": "Failed to delete destination",
             "error": str(e)
         }), 500
+
+#get all destination by region
+def get_all_destination_by_region_service():
+    try:
+        region = request.args.get("region")
+        if not region:
+            return jsonify({"message": "Thiếu tham số"}),400
+        
+        destinations = Destinations.query.filter(
+                            Destinations.region.ilike(f"%{region.strip()}%"),
+                            Destinations.is_active==True).order_by(Destinations.name
+                        ).all()
+        
+        if not destinations:
+            return jsonify({"message": "Không tìm thấy điểm đến nào cho khu vực này"}), 200
+        
+        result = destinationRegions_schema.dump(destinations)
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"message": f"Có lỗi xảy ra, vui lòng thử lại sau: {str(e)}"}), 500
