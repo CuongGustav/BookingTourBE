@@ -148,6 +148,9 @@ def update_destination_admin_service(destination_id):
         region = request.form.get("region")
         description = request.form.get("description")
         image = request.files.get("image")
+        is_active = request.form.get("is_active")
+        delete_image = request.form.get("delete_image")
+
 
         if name:
             destination.name = name
@@ -157,7 +160,38 @@ def update_destination_admin_service(destination_id):
             destination.region = region
         if description is not None:
             destination.description = description
+        if is_active is not None:
+            new_is_active = int(is_active) == 1
+            if destination.is_active != new_is_active:
+                destination.is_active = new_is_active
 
+        # delete image only
+        if delete_image == "true":
+            # delete cloudinary image
+            if destination.image_public_id:
+                try:
+                    cloudinary.uploader.destroy(
+                        destination.image_public_id
+                    )
+                except Exception as e:
+                    current_app.logger.warning(
+                        f"Delete Cloudinary image failed: {str(e)}"
+                    )
+            # delete local image
+            if destination.image_local_path and os.path.exists(
+                destination.image_local_path
+            ):
+                try:
+                    os.remove(destination.image_local_path)
+                except Exception as e:
+                    current_app.logger.warning(
+                        f"Delete local image failed: {str(e)}"
+                    )
+            destination.image_url = None
+            destination.image_public_id = None
+            destination.image_local_path = None
+
+        #upload new image
         if image:
             # remove image Cloudinary old
             if destination.image_public_id:
