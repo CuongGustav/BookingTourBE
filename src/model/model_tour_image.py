@@ -12,6 +12,7 @@ class TourImages(db.Model):
     image_url = Column(String(500), nullable=False)
     display_order = Column(Integer, default=0)
     created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
     tour = relationship("Tours", back_populates="images")
 

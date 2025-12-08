@@ -7,7 +7,7 @@ from flask import current_app, jsonify, request
 from werkzeug.utils import secure_filename
 from src.extension import db
 from src.model.model_destination import Destinations
-from src.marshmallow.library_ma_destination import destination_schema, destinations_schema, destinationRegions_schema
+from src.marshmallow.library_ma_destination import destination_schema, destinations_schema, destinationRegions_schema, destinationCreateTour_schema
 from src.common.decorators import require_role
 
 #check cloudinary usege
@@ -340,3 +340,13 @@ def get_all_destination_by_region_service():
         return jsonify(result), 200
     except Exception as e:
         return jsonify({"message": f"Có lỗi xảy ra, vui lòng thử lại sau: {str(e)}"}), 500
+
+#get all destination create tour admin
+def get_all_destination_create_tour_admin_service ():
+    try:
+        destinations = Destinations.query.order_by(Destinations.created_at.desc()).all()
+        if not destinations:
+            return jsonify({"message":"Không có địa điểm nào trong hệ thống", "data":[]}),200
+        return destinationCreateTour_schema.dump(destinations),200
+    except Exception as e:
+        return jsonify({"message": f"Lỗi hệ thống khi lấy danh sách điểm đến: {str(e)}"}), 500  

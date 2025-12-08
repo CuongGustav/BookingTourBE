@@ -34,3 +34,14 @@ class DestinationRegionSchema(ma.SQLAlchemySchema):
     image_local_path = ma.auto_field()
 
 destinationRegions_schema = DestinationRegionSchema(many=True)
+
+class DestinationCreateTourSchema(ma.SQLAlchemySchema):
+    class Meta:
+        model = Destinations
+        load_instance = True
+        include_fk = True
+
+    destination_id = ma.auto_field()
+    name = ma.auto_field()
+
+destinationCreateTour_schema = DestinationCreateTourSchema(many=True)

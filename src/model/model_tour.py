@@ -14,12 +14,16 @@ class Tours(db.Model):
     destination_id = Column(String(36), ForeignKey("destinations.destination_id"))
     duration_days = Column(Integer, nullable=False)
     duration_nights = Column(Integer, nullable=False)
-    description = Column(Text)
     highlights = Column(Text)
-    itinerary = Column(Text)
     included_services = Column(Text)
     excluded_services = Column(Text)
-    terms_conditions = Column(Text)
+    attractions = Column(Text)
+    cuisine = Column(Text)
+    suitable_for = Column(Text)
+    ideal_time = Column(String(255))
+    transportation = Column(String(255))
+    promotions = Column(Text) 
+    depart_destination = Column(String(255))
     base_price = Column(DECIMAL(10,2), nullable=False)
     child_price = Column(DECIMAL(10,2))
     infant_price = Column(DECIMAL(10,2))
@@ -36,14 +40,16 @@ class Tours(db.Model):
     creator = relationship("Accounts")
     images = relationship("TourImages", cascade="all, delete", back_populates="tour")
     schedules = relationship("TourSchedules", cascade="all, delete", back_populates="tour")
+    itineraries = relationship("TourItineraries", cascade="all, delete", back_populates="tour")
+    tour_destinations = relationship("TourDestinations", cascade="all, delete", back_populates="tour")
     reviews = relationship("Reviews", cascade="all, delete", back_populates="tour")
     bookings = relationship("Bookings", back_populates="tour")
     favorites = relationship("Favorites", back_populates="tour")
 
     def __init__(self, tour_code, title, destination_id, duration_days, duration_nights, base_price,
-                 slug=None, description=None, highlights=None, itinerary=None,
-                 included_services=None, excluded_services=None, terms_conditions=None,
-                 child_price=None, infant_price=None, main_image=None,
+                 slug=None, highlights=None, included_services=None, excluded_services=None, attractions=None,
+                 cuisine=None, suitable_for=None, ideal_time=None, transportation=None, promotions=None,
+                 child_price=None, infant_price=None, main_image=None,depart_destination=None,
                  created_by=None, is_featured=False, is_active=True):
 
         self.tour_id = str(uuid.uuid4())
@@ -53,12 +59,9 @@ class Tours(db.Model):
         self.destination_id = destination_id
         self.duration_days = duration_days
         self.duration_nights = duration_nights
-        self.description = description
         self.highlights = highlights
-        self.itinerary = itinerary
         self.included_services = included_services
         self.excluded_services = excluded_services
-        self.terms_conditions = terms_conditions
         self.base_price = base_price
         self.child_price = child_price
         self.infant_price = infant_price
@@ -66,3 +69,10 @@ class Tours(db.Model):
         self.created_by = created_by
         self.is_featured = is_featured
         self.is_active = is_active
+        self.attractions = attractions
+        self.cuisine = cuisine
+        self.suitable_for = suitable_for
+        self.ideal_time = ideal_time
+        self.transportation = transportation
+        self.promotions = promotions
+        self.depart_destination = depart_destination

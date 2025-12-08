@@ -1,4 +1,3 @@
-# src/model/__init__.py
 from .model_account import Accounts
 from .model_booking import Bookings
 from .model_coupon import Coupons
@@ -12,9 +11,11 @@ from .model_payment import Payments
 from .model_payment_image import PaymentImages
 from .model_review import Reviews
 from .model_review_image import ReviewImages
+from .model_tour_destination import TourDestinations
+from .model_tour_itinerary import TourItineraries
 
 __all__ = [
-    "Accounts", "Bookings", "Coupons", "Destinations",
-    "Tours", "TourSchedules", "BookingPassengers", "Favorites",
+    "Accounts", "Bookings", "Coupons", "Destinations", 
+    "Tours", "TourSchedules","TourDestinations", "BookingPassengers", "Favorites",
     "TourImages", "Payments", "PaymentImages", "Reviews", "ReviewImages"
 ]

@@ -1,7 +1,9 @@
 from flask import Blueprint
+from src.common.decorators import require_role
 from src.destination.services import (get_cloudinary_usage_service, add_destination_service, get_all_destination_admin_service,
                                       get_destination_by_uuid_admin_service, update_destination_admin_service,
-                                      delete_destination_admin_service, get_all_destination_by_region_service)
+                                      delete_destination_admin_service, get_all_destination_by_region_service,
+                                      get_all_destination_create_tour_admin_service)
 
 destination = Blueprint("destination", __name__)
 
@@ -35,3 +37,9 @@ def delete_destination_admin(destination_id):
 @destination.route("/allByRegion", methods=["GET"])
 def get_all_destination_by_region():
     return get_all_destination_by_region_service()
+
+#get all destination create tour admin
+@require_role('qcadmin')
+@destination.route("/allCreateTour", methods=["GET"])
+def get_all_destination_create_tour_by_admin():
+    return get_all_destination_create_tour_admin_service()
