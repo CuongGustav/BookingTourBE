@@ -70,9 +70,9 @@ def create_tour_admin_service():
         created_by = get_jwt_identity()
         main_image = request.files.get("main_image")
 
-        required_fields = [title, duration_days, duration_nights, highlights,depart_destination,base_price]
+        required_fields = [title, duration_days, duration_nights, depart_destination,base_price]
         if not all(required_fields):
-            return jsonify({"message":"Tiêu đề, số ngày, số đêm, điểm nhấn, điểm khởi hành, giá gốc là bắt buộc"}),400
+            return jsonify({"message":"Tiêu đề, số ngày, số đêm, điểm khởi hành, giá gốc là bắt buộc"}),400
         
         if Tours.query.filter(Tours.title.ilike(title)).first():
             return jsonify({"message":"Tiêu đề tour đã tồn tại"}),409
@@ -134,7 +134,7 @@ def create_tour_admin_service():
         db.session.add(new_tour)
         db.session.commit()
         tour_schema.dump(new_tour)
-        return jsonify({"message": "Thêm tour thành công",}), 201
+        return jsonify({"message": "Thêm tour thành công","tour_id": new_tour.tour_id,}), 201
 
     except Exception as e:
         db.session.rollback()
