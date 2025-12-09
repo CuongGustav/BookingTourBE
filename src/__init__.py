@@ -4,6 +4,7 @@ from src.extension import db, ma, jwt, redis_blocklist
 from src.auth.controller import auth
 from src.account.controller import account
 from src.destination.controller import destination
+from src.tour.controller import tour
 
 def create_app(config_file="config.py"):
     app = Flask(__name__)
@@ -32,6 +33,7 @@ def create_app(config_file="config.py"):
     app.register_blueprint(auth, url_prefix="/auth")
     app.register_blueprint(account, url_prefix="/account")  
     app.register_blueprint(destination, url_prefix="/destination")
+    app.register_blueprint(tour, url_prefix="/tour")
 
     #JWT revoke check with Redis
     @jwt.token_in_blocklist_loader
