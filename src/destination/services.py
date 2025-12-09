@@ -49,7 +49,7 @@ def add_destination_service():
         image = request.files.get("image")
 
         if not name or not country:
-            return jsonify({"message": "Name and country are required"}), 400
+            return jsonify({"message": "Tên và quốc gia là bắt buộc"}), 400
 
         if Destinations.query.filter(
             Destinations.name.ilike(name)
@@ -95,17 +95,16 @@ def add_destination_service():
         db.session.add(new_destination)
         db.session.commit()
         destination_schema.dump(new_destination)
-        return jsonify({
-            "message": "Thêm điểm đến thành công",}), 201
+        return jsonify({"message": "Thêm điểm đến thành công",}), 201
 
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(
-            f"LỖI THÊM DESTINATION: {str(e)}",
+            f"lỗi thêm destination: {str(e)}",
             exc_info=True
         )
         return jsonify({
-            "message": "Failed to add destination",
+            "message": "Thêm điểm đến thất bại",
             "error": str(e)
         }), 500
     

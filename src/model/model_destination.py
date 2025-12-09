@@ -18,7 +18,6 @@ class Destinations(db.Model):
     is_active = Column(Boolean, default=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
 
-    tours = relationship("Tours", back_populates="destination")
     tour_destinations = relationship("TourDestinations", back_populates="destination")
 
     def __init__(self, name, country, region=None, description=None, image_url=None, image_public_id=None, image_local_path=None,is_active=True):
