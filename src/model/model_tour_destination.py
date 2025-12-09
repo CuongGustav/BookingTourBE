@@ -4,8 +4,8 @@ from sqlalchemy.orm import relationship
 from src.extension import db
 
 
-class TourDestinations(db.Model):
-    __tablename__ = "tourdestinations"
+class Tour_Destinations(db.Model):
+    __tablename__ = "tour_destinations"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     tour_id = Column(String(36), ForeignKey("tours.tour_id"), nullable=False)
