@@ -12,10 +12,10 @@ from .model_payment_image import PaymentImages
 from .model_review import Reviews
 from .model_review_image import ReviewImages
 from .model_tour_destination import Tour_Destinations
-from .model_tour_itinerary import TourItineraries
+from .model_tour_itinerary import Tour_Itineraries
 
 __all__ = [
     "Accounts", "Bookings", "Coupons", "Destinations", 
-    "Tours", "TourSchedules","Tour_Destinations", "BookingPassengers", "Favorites",
-    "TourImages", "Payments", "PaymentImages", "Reviews", "ReviewImages"
+    "Tours", "Tour_Schedules","Tour_Destinations", "BookingPassengers", "Favorites",
+    "Tour_Images","Tour_Itineraries", "Payments", "PaymentImages", "Reviews", "ReviewImages"
 ]

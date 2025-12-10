@@ -8,7 +8,6 @@ from src.extension import db
 def create_tour_destination_admin_service ():
     try:
         data = request.get_json()
-        current_app.logger.info(f"Received data: {data}")
         if not data:
             return jsonify({"message":"Dữ liệu gửi không hợp lệ"}), 400
         

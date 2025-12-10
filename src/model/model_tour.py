@@ -40,7 +40,7 @@ class Tours(db.Model):
     creator = relationship("Accounts")
     images = relationship("TourImages", cascade="all, delete", back_populates="tour")
     schedules = relationship("TourSchedules", cascade="all, delete", back_populates="tour")
-    itineraries = relationship("TourItineraries", cascade="all, delete", back_populates="tour")
+    itineraries = relationship("Tour_Itineraries", cascade="all, delete", back_populates="tour")
     tour_destinations = relationship("Tour_Destinations", cascade="all, delete", back_populates="tour")
     reviews = relationship("Reviews", cascade="all, delete", back_populates="tour")
     bookings = relationship("Bookings", back_populates="tour")

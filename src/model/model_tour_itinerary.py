@@ -5,7 +5,7 @@ from sqlalchemy.orm import relationship
 from src.extension import db
 
 
-class TourItineraries(db.Model):
+class Tour_Itineraries(db.Model):
     __tablename__ = "tour_itineraries"
 
     itinerary_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
