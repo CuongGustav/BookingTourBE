@@ -45,7 +45,7 @@ class Bookings(db.Model):
     # back_populates để thiết lập quan hệ hai chiều, cho phép truy vấn ngươpc lại từ bảng liên quan
     account = relationship("Accounts", back_populates="bookings")
     tour = relationship("Tours", back_populates="bookings")
-    schedule = relationship("TourSchedules", back_populates="bookings")
+    schedule = relationship("Tour_Schedules", back_populates="bookings")
     coupon = relationship("Coupons", back_populates="bookings")
     passengers = relationship("BookingPassengers", cascade="all, delete", back_populates="booking")
     payments = relationship("Payments", cascade="all, delete", back_populates="booking")

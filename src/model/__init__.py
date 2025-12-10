@@ -3,7 +3,7 @@ from .model_booking import Bookings
 from .model_coupon import Coupons
 from .model_destination import Destinations
 from .model_tour import Tours
-from .model_tour_schedule import TourSchedules
+from .model_tour_schedule import Tour_Schedules
 from .model_booking_passenger import BookingPassengers
 from .model_favorite import Favorites
 from .model_tour_image import TourImages
@@ -13,6 +13,7 @@ from .model_review import Reviews
 from .model_review_image import ReviewImages
 from .model_tour_destination import Tour_Destinations
 from .model_tour_itinerary import Tour_Itineraries
+from .model_tour_schedule import Tour_Schedules
 
 __all__ = [
     "Accounts", "Bookings", "Coupons", "Destinations", 

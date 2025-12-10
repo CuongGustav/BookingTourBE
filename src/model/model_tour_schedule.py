@@ -11,7 +11,7 @@ class ScheduleStatusEnum(PyEnum):
     CANCELLED = "cancelled"
 
 
-class TourSchedules(db.Model):
+class Tour_Schedules(db.Model):
     __tablename__ = "tour_schedules"
 
     schedule_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
