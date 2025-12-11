@@ -6,7 +6,7 @@ from .model_tour import Tours
 from .model_tour_schedule import Tour_Schedules
 from .model_booking_passenger import BookingPassengers
 from .model_favorite import Favorites
-from .model_tour_image import TourImages
+from .model_tour_image import Tour_Images
 from .model_payment import Payments
 from .model_payment_image import PaymentImages
 from .model_review import Reviews

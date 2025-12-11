@@ -38,7 +38,7 @@ class Tours(db.Model):
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
     creator = relationship("Accounts")
-    images = relationship("TourImages", cascade="all, delete", back_populates="tour")
+    images = relationship("Tour_Images", cascade="all, delete", back_populates="tour")
     schedules = relationship("Tour_Schedules", cascade="all, delete", back_populates="tour")
     itineraries = relationship("Tour_Itineraries", cascade="all, delete", back_populates="tour")
     tour_destinations = relationship("Tour_Destinations", cascade="all, delete", back_populates="tour")
