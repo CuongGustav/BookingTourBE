@@ -1,7 +1,7 @@
 from flask import Blueprint
 from flask_jwt_extended import jwt_required
 from src.common.decorators import require_role
-from src.tour.services import(create_tour_admin_service)
+from src.tour.services import(create_tour_admin_service, get_all_tour_service, get_all_tour_admin_service)
 
 tour = Blueprint("tour", __name__)
 
@@ -10,3 +10,13 @@ tour = Blueprint("tour", __name__)
 @require_role("qcadmin")  
 def create_tour():
     return create_tour_admin_service()
+
+@tour.route("/admin/all", methods=["GET"])
+@jwt_required()  
+@require_role("qcadmin")  
+def get_all_tour_admin():
+    return get_all_tour_admin_service()
+
+@tour.route("/all", methods=["GET"])
+def get_all_tour():
+    return get_all_tour_service()

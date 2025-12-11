@@ -7,7 +7,7 @@ from werkzeug.utils import secure_filename
 from flask_jwt_extended import get_jwt_identity
 from src.extension import db
 from src.model.model_tour import Tours
-from src.marshmallow.library_ma_tour import tour_schema
+from src.marshmallow.library_ma_tour import tour_schema,tourInfos_schema
 
 #generate tour code
 def generate_tour_code():
@@ -146,3 +146,24 @@ def create_tour_admin_service():
             "message": "Thêm tour thất bại",
             "error": str(e)
         }), 500
+
+#get all tour admin
+def get_all_tour_admin_service():
+    try:
+        tours = Tours.query.order_by(Tours.created_at.desc()).all()
+        if not tours:
+            return jsonify({"message":"Không có tour nào trong hệ thống", "data":[]}),200
+        return tourInfos_schema.dump(tours), 200
+    except Exception as e:
+        return jsonify({"message": f"Lỗi hệ thống khi lấy danh sách điểm đến: {str(e)}"}), 500  
+    
+#get all tour
+def get_all_tour_service():
+    try:
+        tours = Tours.query.filter(Tours.is_active == True).order_by(Tours.created_at.desc()).all()
+        if not tours:
+            return jsonify({"message":"Không có tour nào trong hệ thống", "data":[]}),200
+        return tourInfos_schema.dump(tours), 200
+    except Exception as e:
+        return jsonify({"message": f"Lỗi hệ thống khi lấy danh sách điểm đến: {str(e)}"}), 500  
+    

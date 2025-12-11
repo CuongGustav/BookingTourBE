@@ -39,3 +39,26 @@ class TourSchema(ma.SQLAlchemySchema):
     updated_at = ma.auto_field()
 
 tour_schema = TourSchema()
+
+class TourInfoSchema(ma.SQLAlchemySchema):
+    class Meta:
+        model = Tours
+        load_instance = True
+        include_fk = True
+
+    tour_id = ma.auto_field()
+    tour_code = ma.auto_field()
+    title = ma.auto_field()
+    duration_days = ma.auto_field()
+    duration_nights = ma.auto_field()
+    depart_destination = ma.auto_field()
+    base_price = ma.auto_field()
+    main_image_url = ma.auto_field()
+    main_image_local_path = ma.auto_field()
+    rating_average = ma.auto_field()
+    total_reviews = ma.auto_field()
+    is_featured = ma.auto_field()
+    is_active = ma.auto_field()
+    created_at = ma.auto_field()
+
+tourInfos_schema = TourInfoSchema(many=True)
