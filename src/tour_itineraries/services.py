@@ -14,7 +14,7 @@ def create_tour_itineraties_admin_service ():
         itineraries_data = data.get("itineraries")
         if not tour_id:
             return jsonify({"message":"Thiếu tour_id"})
-        if not isinstance or len(itineraries_data) == 0:
+        if not itineraries_data or len(itineraries_data) == 0:
             return jsonify({"message": "Không có dữ liệu về Lịch trình chi tiết"}), 400
         
         created_itineraries = []
@@ -39,7 +39,7 @@ def create_tour_itineraties_admin_service ():
 
         if errors:
             db.session.rollback()
-            return jsonify({"message": "Lỗi validation", "errors": errors}), 400
+            return jsonify({"message": "Lỗi xác nhận", "errors": errors}), 400
         
         db.session.commit()
         return jsonify({"message": "Tạo lịch trình chi tiết thành công"}), 201
