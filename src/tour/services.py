@@ -3,11 +3,14 @@ import os
 import uuid
 import cloudinary
 from flask import current_app, jsonify, request
+from sqlalchemy.orm import joinedload
 from werkzeug.utils import secure_filename
 from flask_jwt_extended import get_jwt_identity
 from src.extension import db
 from src.model.model_tour import Tours
-from src.marshmallow.library_ma_tour import tour_schema,tourInfos_schema
+from src.model.model_tour_schedule import Tour_Schedules, ScheduleStatusEnum
+from src.marshmallow.library_ma_tour import tour_schema,tourInfos_schema, tourInfo_schema
+from src.marshmallow.library_ma_tour_schedules import tour_schedule_schema
 
 #generate tour code
 def generate_tour_code():
@@ -166,4 +169,38 @@ def get_all_tour_service():
         return tourInfos_schema.dump(tours), 200
     except Exception as e:
         return jsonify({"message": f"Lỗi hệ thống khi lấy danh sách điểm đến: {str(e)}"}), 500  
+    
+#get 8 tour
+def get_8_tour_service():
+    try:
+        tours = (
+            Tours.query
+            .options(joinedload(Tours.schedules))
+            .filter(Tours.is_active == True)
+            .order_by(Tours.created_at.desc())
+            .all()
+        )
+        result = []
+        for tour in tours:
+            tour_data = tourInfo_schema.dump(tour)  
+            upcoming_schedules = (
+                Tour_Schedules.query
+                .filter(
+                    Tour_Schedules.tour_id == tour.tour_id,
+                    Tour_Schedules.departure_date >= datetime.now().date(),
+                    Tour_Schedules.status == ScheduleStatusEnum.AVAILABLE.value
+                )
+                .order_by(Tour_Schedules.departure_date.asc())
+                .limit(2)
+                .all()
+            )
+            schedules_data = tour_schedule_schema.dump(upcoming_schedules)
+            tour_data["upcoming_schedules"] = schedules_data
+            result.append(tour_data)
+        if not result:
+            return jsonify({"message": "Không có tour nào trong hệ thống", "data": []}), 200
+        return jsonify({"data": result}), 200
+    except Exception as e:
+        current_app.logger.error(f"Lỗi khi lấy danh sách tour: {str(e)}", exc_info=True)
+        return jsonify({"message": f"Lỗi hệ thống: {str(e)}"}), 500 
     

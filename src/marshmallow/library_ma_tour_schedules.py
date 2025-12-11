@@ -1,4 +1,5 @@
 from src.extension import ma
+from src.model.model_tour_schedule import Tour_Schedules
 
 class TourScheduleCreateSchema(ma.Schema):
     departure_date = ma.Date(required=True)
@@ -9,3 +10,21 @@ class TourScheduleCreateSchema(ma.Schema):
     price_infant = ma.Decimal(required=False)
 
 tour_schedule_create_schema = TourScheduleCreateSchema()
+
+class TourScheduleSchema(ma.SQLAlchemySchema):
+    class Meta:
+        model = Tour_Schedules
+        load_instance = True
+
+    schedule_id = ma.auto_field()
+    departure_date = ma.auto_field()
+    return_date = ma.auto_field()
+    available_seats = ma.auto_field()
+    booked_seats = ma.auto_field()
+    price_adult = ma.auto_field()
+    price_child = ma.auto_field()
+    price_infant = ma.auto_field()
+    status = ma.auto_field()
+    created_at = ma.auto_field()
+    
+tour_schedule_schema = TourScheduleSchema(many=True)

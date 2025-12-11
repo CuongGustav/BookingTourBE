@@ -1,5 +1,4 @@
 from src.extension import ma
-from src.model.model_destination import Destinations
 from src.model.model_tour import Tours
 
 class TourSchema(ma.SQLAlchemySchema):
@@ -61,4 +60,5 @@ class TourInfoSchema(ma.SQLAlchemySchema):
     is_active = ma.auto_field()
     created_at = ma.auto_field()
 
+tourInfo_schema = TourInfoSchema()
 tourInfos_schema = TourInfoSchema(many=True)
