@@ -59,6 +59,8 @@ class TourInfoSchema(ma.SQLAlchemySchema):
     is_featured = ma.auto_field()
     is_active = ma.auto_field()
     created_at = ma.auto_field()
+    transportation = ma.auto_field()
+    slug = ma.auto_field()
 
 tourInfo_schema = TourInfoSchema()
 tourInfos_schema = TourInfoSchema(many=True)
