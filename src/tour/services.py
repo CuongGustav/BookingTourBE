@@ -3,11 +3,14 @@ import os
 import uuid
 import cloudinary
 from flask import current_app, jsonify, request
+from sqlalchemy import exists
 from sqlalchemy.orm import joinedload
 from werkzeug.utils import secure_filename
 from flask_jwt_extended import get_jwt_identity
 from src.extension import db
+from src.model.model_destination import Destinations
 from src.model.model_tour import Tours
+from src.model.model_tour_destination import Tour_Destinations
 from src.model.model_tour_schedule import Tour_Schedules, ScheduleStatusEnum
 from src.marshmallow.library_ma_tour import tour_schema,tourInfos_schema, tourInfo_schema
 from src.marshmallow.library_ma_tour_schedules import tour_schedule_schema
@@ -230,53 +233,128 @@ def get_8_tour_service():
         current_app.logger.error(f"Lỗi khi lấy danh sách tour: {str(e)}", exc_info=True)
         return jsonify({"message": f"Lỗi hệ thống: {str(e)}"}), 500 
     
-
-def filter_tours_homepage_service():
+    
+#get tour by filter
+def filter_tours_service():
     try:
-        data = request.get_json(silent=True) or {}
-        destination = (data.get("destination") or "").strip()
-        departure_day_str = (data.get("departureDay") or "").strip()
-        budget = (data.get("budget") or "").strip()
+        data = request.get_json()
+        budget = data.get("budget")
+
+        departDestination = data.get("departDestination") 
+        destination = data.get("destination")
+        date = data.get("date")
+        destination_info = None
 
         query = Tours.query.filter(Tours.is_active == True)
 
+        # Filter by departDestination 
+        if departDestination:
+            query = query.filter(Tours.depart_destination.ilike(f"%{departDestination}%"))
+
+        # Filter by destination 
         if destination:
-            query = query.filter(Tours.depart_destination.ilike(f"%{destination}%"))
+            query = query.filter(
+                exists().where(
+                    (Tour_Destinations.tour_id == Tours.tour_id) &
+                    (Tour_Destinations.destination_id == Destinations.destination_id) &
+                    (Destinations.name.ilike(f"%{destination}%")) &
+                    (Destinations.is_active == True)
+                )
+            )
+            
+            destination_obj = (
+                Destinations.query
+                .filter(
+                    Destinations.name.ilike(f"%{destination}%"),
+                    Destinations.is_active == True
+                )
+                .first()
+            )
+            if destination_obj:
+                destination_info = {
+                    "name": destination_obj.name,
+                    "description": destination_obj.description
+                }
+
+        # Filter by budget - BẮT BUỘC nếu có
         if budget:
-            if budget == "under-5":
+            if budget == "<5":
                 query = query.filter(Tours.base_price < 5000000)
             elif budget == "5-10":
                 query = query.filter(Tours.base_price.between(5000000, 10000000))
             elif budget == "10-20":
                 query = query.filter(Tours.base_price.between(10000000, 20000000))
-            elif budget == "over-20":
+            elif budget == ">20":
                 query = query.filter(Tours.base_price > 20000000)
 
-        target_date = None
-        if departure_day_str:
+        if date:
             try:
-                target_date = datetime.strptime(departure_day_str, "%Y-%m-%d").date()
+                target_date = datetime.strptime(date, "%Y-%m-%d").date()
+                query = query.filter(
+                    exists().where(
+                        (Tour_Schedules.tour_id == Tours.tour_id) &
+                        (Tour_Schedules.departure_date == target_date) &
+                        (Tour_Schedules.status == ScheduleStatusEnum.AVAILABLE.value)
+                    )
+                )
             except ValueError:
-                return jsonify({"message": "Ngày không hợp lệ, dùng YYYY-MM-DD"}), 400
-            query = query.join(Tour_Schedules, Tours.tour_id == Tour_Schedules.tour_id)
-            query = query.filter(
-                Tour_Schedules.departure_date == target_date,
-                Tour_Schedules.status == ScheduleStatusEnum.AVAILABLE.value
-            )
-        tours = query.all()
+                return jsonify({
+                    "message": "Ngày không hợp lệ, định dạng: YYYY-MM-DD"
+                }), 400
+
+        query = query.distinct()
+        
+        tours = query.order_by(Tours.created_at.desc()).all()
 
         result = []
         for tour in tours:
             tour_data = tourInfo_schema.dump(tour)
-            upcoming = Tour_Schedules.query.filter(
-                Tour_Schedules.tour_id == tour.tour_id,
-                Tour_Schedules.departure_date >= datetime.now().date(),
-                Tour_Schedules.status == ScheduleStatusEnum.AVAILABLE.value
-            ).order_by(Tour_Schedules.departure_date.asc()).limit(5).all()
-            tour_data["upcoming_schedules"] = tour_schedule_schema.dump(upcoming)
+
+            if date:
+                try:
+                    target_date = datetime.strptime(date, "%Y-%m-%d").date()
+                    upcoming_schedules = (
+                        Tour_Schedules.query
+                        .filter(
+                            Tour_Schedules.tour_id == tour.tour_id,
+                            Tour_Schedules.departure_date == target_date,
+                            Tour_Schedules.status == ScheduleStatusEnum.AVAILABLE.value
+                        )
+                        .order_by(Tour_Schedules.departure_date.asc())
+                        .all()
+                    )
+                except:
+                    upcoming_schedules = []
+            else:
+                upcoming_schedules = (
+                    Tour_Schedules.query
+                    .filter(
+                        Tour_Schedules.tour_id == tour.tour_id,
+                        Tour_Schedules.departure_date >= datetime.now().date(),
+                        Tour_Schedules.status == ScheduleStatusEnum.AVAILABLE.value
+                    )
+                    .order_by(Tour_Schedules.departure_date.asc())
+                    .limit(5)
+                    .all()
+                )
+            
+            schedules_data = tour_schedule_schema.dump(upcoming_schedules)
+            tour_data["upcoming_schedules"] = schedules_data
+
             result.append(tour_data)
 
-        return jsonify({"data": result,"total": len(result)}), 200
+        return jsonify({
+            "tours": result,  # Đổi từ "data" sang "tours" để đồng bộ với frontend
+            "total": len(result),
+            "destination": destination_info
+        }), 200
+
     except Exception as e:
-        current_app.logger.error(f"Lỗi filter tour homepage: {str(e)}", exc_info=True)
-        return jsonify({"success": False, "message": "Lỗi hệ thống"}), 500
+        current_app.logger.error(
+            f"Lỗi khi filter tours: {str(e)}", 
+            exc_info=True
+        )
+        return jsonify({
+            "message": "Lỗi hệ thống khi lọc tour",
+            "error": str(e)
+        }), 500
