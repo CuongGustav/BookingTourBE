@@ -58,29 +58,26 @@ def add_destination_service():
 
         image_url = None
         image_public_id = None
-        image_local_path = None
 
-        if image:
-            ext = os.path.splitext(image.filename)[1]
-            local_filename = f"{uuid.uuid4()}{ext}"
-            # filesystem path
-            image_local_path = os.path.join(
-                DESTINATION_UPLOAD_FOLDER,
-                secure_filename(local_filename)
-            )
-            image.save(image_local_path)
-            # Cloudinary
+        if image and image.filename:
+            ext = image.filename.rsplit('.', 1)[1].lower() if '.' in image.filename else ''
+            allowed = {'jpg', 'jpeg', 'png', 'webp', 'gif'}
+            if ext not in allowed:
+                return jsonify({"message": "Định dạng ảnh không hợp lệ"}), 400
+
             try:
+                unique_name = str(uuid.uuid4())
                 upload_result = cloudinary.uploader.upload(
-                    image_local_path,
-                    folder="destinations"
+                    image,
+                    folder="destinations",
+                    public_id=unique_name,
+                    format=ext,
+                    transformation=[{'quality': "auto", 'fetch_format': "auto"}]
                 )
-                image_url = upload_result.get("secure_url")
-                image_public_id = upload_result.get("public_id")
+                image_url = upload_result["secure_url"]
+                image_public_id = upload_result["public_id"]
             except Exception as e:
-                current_app.logger.warning(
-                    f"Cloudinary upload failed: {str(e)}"
-                )
+                current_app.logger.warning(f"Cloudinary upload failed: {str(e)}")
 
         new_destination = Destinations(
             name=name,
@@ -89,7 +86,6 @@ def add_destination_service():
             description=description,
             image_url=image_url,
             image_public_id=image_public_id,
-            image_local_path=image_local_path,
             is_active=True
         )
         db.session.add(new_destination)
@@ -124,14 +120,15 @@ def get_all_destination_admin_service ():
 def get_destination_by_uuid_admin_service (destination_id):
     if not destination_id:
         return jsonify({"message": "Thiếu thông tin destination_id"}), 400
-    
-    destination = Destinations.query.filter_by(destination_id=destination_id).first()
-    if not destination:
-        return jsonify({"message": "Không tìm thấy điểm đến"}), 404
-    
-    return destination_schema.dump(destination), 200
-    
-#update destination by admin
+    try:
+        destination = Destinations.query.filter_by(destination_id=destination_id).first()
+        if not destination:
+            return jsonify({"message": "Không tìm thấy điểm đến"}), 404
+        return destination_schema.dump(destination), 200
+    except Exception as e:
+        return jsonify({"message": f"Lỗi hệ thống: {str(e)}"}), 500
+
+#update destination admin
 @require_role("qcadmin")
 def update_destination_admin_service(destination_id):
     try:
@@ -146,104 +143,55 @@ def update_destination_admin_service(destination_id):
         country = request.form.get("country")
         region = request.form.get("region")
         description = request.form.get("description")
-        image = request.files.get("image")
         is_active = request.form.get("is_active")
-        delete_image = request.form.get("delete_image")
-
+        image = request.files.get("image")
 
         if name:
+            if Destinations.query.filter(
+                Destinations.name.ilike(name),
+                Destinations.destination_id != destination_id
+            ).first():
+                return jsonify({"message": "Tên điểm đến đã tồn tại"}), 409
             destination.name = name
+
         if country:
             destination.country = country
-        if region is not None:
+
+        if region:
             destination.region = region
-        if description is not None:
+
+        if description:
             destination.description = description
+
         if is_active is not None:
-            new_is_active = int(is_active) == 1
-            if destination.is_active != new_is_active:
-                destination.is_active = new_is_active
+            destination.is_active = bool(int(is_active))
 
-        # delete image only
-        if delete_image == "true":
-            # delete cloudinary image
+        if image and image.filename:
+            # Xóa ảnh cũ nếu có
             if destination.image_public_id:
                 try:
-                    cloudinary.uploader.destroy(
-                        destination.image_public_id
-                    )
+                    cloudinary.uploader.destroy(destination.image_public_id)
                 except Exception as e:
-                    current_app.logger.warning(
-                        f"Delete Cloudinary image failed: {str(e)}"
-                    )
-            # delete local image
-            if destination.image_local_path and os.path.exists(
-                destination.image_local_path
-            ):
-                try:
-                    os.remove(destination.image_local_path)
-                except Exception as e:
-                    current_app.logger.warning(
-                        f"Delete local image failed: {str(e)}"
-                    )
-            destination.image_url = None
-            destination.image_public_id = None
-            destination.image_local_path = None
+                    current_app.logger.warning(f"Delete old Cloudinary image failed: {str(e)}")
 
-        #upload new image
-        if image:
-            # remove image Cloudinary old
-            if destination.image_public_id:
-                try:
-                    cloudinary.uploader.destroy(
-                        destination.image_public_id
-                    )
-                except Exception as e:
-                    current_app.logger.warning(
-                        f"Delete old Cloudinary image failed: {str(e)}"
-                    )
-
-            # remove image local
-            if destination.image_local_path and os.path.exists(
-                destination.image_local_path
-            ):
-                try:
-                    os.remove(destination.image_local_path)
-                except Exception as e:
-                    current_app.logger.warning(
-                        f"Delete old local image failed: {str(e)}"
-                    )
-
-            # save image
-            ext = os.path.splitext(image.filename)[1]
-            local_filename = f"{uuid.uuid4()}{ext}"
-
-            new_local_path = os.path.join(
-                DESTINATION_UPLOAD_FOLDER,
-                secure_filename(local_filename)
-            )
-
-            image.save(new_local_path)
-
-            #Upload Cloudinary
-            image_url = None
-            image_public_id = None
+            # Upload ảnh mới
+            ext = image.filename.rsplit('.', 1)[1].lower() if '.' in image.filename else ''
+            if ext not in {'jpg', 'jpeg', 'png', 'webp', 'gif'}:
+                return jsonify({"message": "Định dạng ảnh không hợp lệ"}), 400
 
             try:
+                unique_name = str(uuid.uuid4())
                 upload_result = cloudinary.uploader.upload(
-                    new_local_path,
-                    folder="destinations"
+                    image,
+                    folder="destinations",
+                    public_id=unique_name,
+                    format=ext,
+                    transformation=[{'quality': "auto", 'fetch_format': "auto"}]
                 )
-                image_url = upload_result.get("secure_url")
-                image_public_id = upload_result.get("public_id")
+                destination.image_url = upload_result["secure_url"]
+                destination.image_public_id = upload_result["public_id"]
             except Exception as e:
-                current_app.logger.warning(
-                    f"Cloudinary upload failed: {str(e)}"
-                )
-
-            destination.image_local_path = new_local_path
-            destination.image_url = image_url
-            destination.image_public_id = image_public_id
+                current_app.logger.warning(f"Cloudinary upload failed: {str(e)}")
 
         db.session.commit()
 
@@ -292,16 +240,6 @@ def delete_destination_admin_service(destination_id):
                     f"Delete Cloudinary image failed: {str(e)}"
                 )
 
-        if destination.image_local_path and os.path.exists(
-            destination.image_local_path
-        ):
-            try:
-                os.remove(destination.image_local_path)
-            except Exception as e:
-                current_app.logger.warning(
-                    f"Delete local image failed: {str(e)}"
-                )
-
         db.session.delete(destination)
         db.session.commit()
 
@@ -348,4 +286,4 @@ def get_all_destination_create_tour_admin_service ():
             return jsonify({"message":"Không có địa điểm nào trong hệ thống", "data":[]}),200
         return destinationCreateTour_schema.dump(destinations),200
     except Exception as e:
-        return jsonify({"message": f"Lỗi hệ thống khi lấy danh sách điểm đến: {str(e)}"}), 500  
+        return jsonify({"message": f"Lỗi hệ thống khi lấy danh sách điểm đến: {str(e)}"}), 500

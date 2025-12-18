@@ -43,15 +43,6 @@ def generate_tour_code():
         new_code = f"TOUR-{current_year}{uuid.uuid4().hex[:6].upper()}"
     return new_code
 
-BASE_DIR = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-)
-DESTINATION_UPLOAD_FOLDER = os.path.join(
-    BASE_DIR, "static", "tour"
-)
-DESTINATION_STATIC_URL = "/static/tour"
-os.makedirs(DESTINATION_UPLOAD_FOLDER, exist_ok=True)
-
 #add tour
 def create_tour_admin_service():
     try: 
@@ -89,29 +80,28 @@ def create_tour_admin_service():
         
         main_image_url = None
         main_image_public_id = None
-        main_image_local_path = None
 
-        if main_image:
-            ext = os.path.splitext(main_image.filename)[1]
-            local_filename = f"{uuid.uuid4()}{ext}"
-            # filesystem path
-            main_image_local_path = os.path.join(
-                DESTINATION_UPLOAD_FOLDER,
-                secure_filename(local_filename)
-            )
-            main_image.save(main_image_local_path)
-            # Cloudinary
+        if main_image and main_image.filename:
+            ext = main_image.filename.rsplit('.', 1)[1].lower() if '.' in main_image.filename else ''
+            allowed = {'jpg', 'jpeg', 'png', 'webp', 'gif'}
+            if ext not in allowed:
+                return jsonify({"message": "Định dạng ảnh không hợp lệ"}), 400
+
             try:
+                unique_name = str(uuid.uuid4())
                 upload_result = cloudinary.uploader.upload(
-                    main_image_local_path,
-                    folder="tours"
+                    main_image,
+                    folder="tours",
+                    public_id=unique_name,
+                    format=ext,
+                    transformation=[{'quality': "auto", 'fetch_format': "auto"}]
                 )
-                main_image_url = upload_result.get("secure_url")
-                main_image_public_id = upload_result.get("public_id")
+                main_image_url = upload_result["secure_url"]
+                main_image_public_id = upload_result["public_id"]
             except Exception as e:
-                current_app.logger.warning(
-                    f"Cloudinary upload failed: {str(e)}"
-                )
+                current_app.logger.error(f"Cloudinary upload failed: {str(e)}")
+                return jsonify({"message": "Upload ảnh thất bại"}), 500
+
         new_tour = Tours(
             tour_code = tour_code,
             title = title,
@@ -133,7 +123,6 @@ def create_tour_admin_service():
             infant_price = infant_price,
             main_image_url = main_image_url,
             main_image_public_id = main_image_public_id,
-            main_image_local_path = main_image_local_path,
             is_featured = is_featured,
             created_by = created_by
         )
@@ -253,14 +242,12 @@ def filter_tours_service():
 
         # Filter by destination 
         if destination:
-            query = query.filter(
-                exists().where(
-                    (Tour_Destinations.tour_id == Tours.tour_id) &
-                    (Tour_Destinations.destination_id == Destinations.destination_id) &
-                    (Destinations.name.ilike(f"%{destination}%")) &
-                    (Destinations.is_active == True)
+            query = query.join(Tour_Destinations, Tours.tour_id == Tour_Destinations.tour_id)\
+                .join(Destinations, Tour_Destinations.destination_id == Destinations.destination_id)\
+                .filter(
+                    Destinations.name.ilike(f"%{destination}%"),
+                    Destinations.is_active == True
                 )
-            )
             
             destination_obj = (
                 Destinations.query
@@ -344,7 +331,7 @@ def filter_tours_service():
             result.append(tour_data)
 
         return jsonify({
-            "tours": result,  # Đổi từ "data" sang "tours" để đồng bộ với frontend
+            "tours": result,  
             "total": len(result),
             "destination": destination_info
         }), 200
