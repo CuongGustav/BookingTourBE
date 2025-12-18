@@ -14,13 +14,12 @@ class Destinations(db.Model):
     description = Column(Text)
     image_url = Column(String(500))
     image_public_id = Column(String(255))
-    image_local_path = Column(String(255))
     is_active = Column(Boolean, default=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
 
     tour_destinations = relationship("Tour_Destinations", back_populates="destination")
 
-    def __init__(self, name, country, region=None, description=None, image_url=None, image_public_id=None, image_local_path=None,is_active=True):
+    def __init__(self, name, country, region=None, description=None, image_url=None, image_public_id=None, is_active=True):
         self.destination_id = str(uuid.uuid4())
         self.name = name
         self.country = country
@@ -28,5 +27,4 @@ class Destinations(db.Model):
         self.description = description
         self.image_url = image_url
         self.image_public_id = image_public_id
-        self.image_local_path = image_local_path
         self.is_active = is_active

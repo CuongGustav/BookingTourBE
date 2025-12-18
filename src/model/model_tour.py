@@ -28,7 +28,6 @@ class Tours(db.Model):
     infant_price = Column(DECIMAL(10,2))
     main_image_url = Column(String(500))
     main_image_public_id = Column(String(500))
-    main_image_local_path = Column(String(500))
     rating_average = Column(DECIMAL(3,2), default=0.00)
     total_reviews = Column(Integer, default=0)
     is_featured = Column(Boolean, default=False)
@@ -50,7 +49,7 @@ class Tours(db.Model):
                  slug=None, highlights=None, included_services=None, excluded_services=None, attractions=None,
                  cuisine=None, suitable_for=None, ideal_time=None, transportation=None, promotions=None,
                  child_price=None, infant_price=None, main_image_url=None,depart_destination=None, main_image_public_id =None,
-                 created_by=None, is_featured=False, is_active=True, main_image_local_path=None, ):
+                 created_by=None, is_featured=False, is_active=True, ):
 
         self.tour_id = str(uuid.uuid4())
         self.tour_code = tour_code
@@ -66,7 +65,6 @@ class Tours(db.Model):
         self.infant_price = infant_price
         self.main_image_url = main_image_url
         self.main_image_public_id = main_image_public_id
-        self.main_image_local_path = main_image_local_path
         self.created_by = created_by
         self.is_featured = is_featured
         self.is_active = is_active
