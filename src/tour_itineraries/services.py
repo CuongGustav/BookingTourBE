@@ -1,5 +1,5 @@
 from flask import jsonify, request
-from src.marshmallow.library_ma_tour_itineraries import tour_itinerary_create_schema
+from src.marshmallow.library_ma_tour_itineraries import tour_itinerary_create_schema, tour_itineraries_read_schema
 from src.model.model_tour_itinerary import Tour_Itineraries
 from src.extension import db
 
@@ -46,3 +46,20 @@ def create_tour_itineraties_admin_service ():
     except Exception as e:
         db.session.rollback()
         return jsonify({"message": f"Lỗi server: {str(e)}"}), 500
+    
+#get tour details by tour id
+def get_tour_itineraries_by_tour_id_service(tour_id):
+    if not tour_id:
+        return jsonify({"message": "Thiếu tour_id"}), 400
+    try:
+        itineraries = Tour_Itineraries.query.filter_by(tour_id=tour_id).order_by(Tour_Itineraries.display_order).all()
+        
+        if not itineraries:
+            return []
+        
+        result = tour_itineraries_read_schema.dump(itineraries)
+        return result
+    except Exception as e:
+        print(f"[TourSchedulesService] Lỗi ở hàm get_tour_schedule_service {tour_id}: {str(e)}")
+        db.session.rollback()
+        return []

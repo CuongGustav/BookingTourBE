@@ -1,11 +1,11 @@
-import os
 import uuid
 import cloudinary
-from werkzeug.utils import secure_filename
 from flask import current_app, jsonify, request
 from src.extension import db
 from src.model.model_tour_image import Tour_Images
+from src.marshmallow.library_ma_tour_images import tour_images_read_schema
 
+#create tour image
 def create_tour_images_admin_service():
     try:
         tour_id = request.form.get("tour_id")
@@ -70,5 +70,22 @@ def create_tour_images_admin_service():
         current_app.logger.error(f"Lỗi upload tour images: {str(e)}", exc_info=True)
         return jsonify({"message": "Upload thất bại", "error": str(e)}), 500
 
-                
+#get tour image by tour_id
+def get_tour_images_by_tour_id_service (tour_id: str):
+    try:
+        images = (
+            Tour_Images.query
+            .filter_by(tour_id=tour_id)
+            .order_by(Tour_Images.display_order.asc())
+            .all()
+        ) 
+        if not images:
+            return []
+
+        result = tour_images_read_schema.dump(images)
+        return result
+    except Exception as e:
+        print(f"[TourImagesService] Lỗi ở hàm get_tour_image_by_tour_id_service {tour_id}: {str(e)}")
+        db.session.rollback()
+        return []
 

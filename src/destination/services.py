@@ -4,11 +4,11 @@ import cloudinary
 import cloudinary.uploader
 import cloudinary.api
 from flask import current_app, jsonify, request
-from werkzeug.utils import secure_filename
 from src.extension import db
 from src.model.model_destination import Destinations
-from src.marshmallow.library_ma_destination import destination_schema, destinations_schema, destinationRegions_schema, destinationCreateTour_schema
+from src.marshmallow.library_ma_destination import destination_schema, destinations_schema, destinationRegions_schema, destinationCreateTour_schema, destinationByTourID_schema
 from src.common.decorators import require_role
+from src.model.model_tour_destination import Tour_Destinations
 
 #check cloudinary usege
 def get_cloudinary_usage_service():
@@ -287,3 +287,31 @@ def get_all_destination_create_tour_admin_service ():
         return destinationCreateTour_schema.dump(destinations),200
     except Exception as e:
         return jsonify({"message": f"Lỗi hệ thống khi lấy danh sách điểm đến: {str(e)}"}), 500
+    
+#get destination by tour id
+def get_destination_by_tour_id_service(tour_id):
+    try:
+        if not tour_id:
+            return jsonify({"message": "Thiếu thông tin tour_id"}), 400
+        
+        # Query đúng: Join qua Tour_Destinations (relationship 'tour_destinations')
+        destinations = (
+            Destinations.query
+            .join(Tour_Destinations, Destinations.destination_id == Tour_Destinations.destination_id)
+            .filter(
+                Tour_Destinations.tour_id == tour_id,
+                Destinations.is_active == True
+            )
+            .all()
+        )
+
+        if not destinations:
+            return []
+
+        result = destinationByTourID_schema.dump(destinations)
+        return result
+    
+    except Exception as e:
+        print(f"[DestinationService] Lỗi ở hàm get_destination_by_tour_id_service {tour_id}: {str(e)}")
+        db.session.rollback()
+        return []

@@ -14,7 +14,10 @@ from src.model.model_tour_destination import Tour_Destinations
 from src.model.model_tour_schedule import Tour_Schedules, ScheduleStatusEnum
 from src.marshmallow.library_ma_tour import tour_schema,tourInfos_schema, tourInfo_schema
 from src.marshmallow.library_ma_tour_schedules import tour_schedule_schema
-
+from src.tour_images.services import get_tour_images_by_tour_id_service
+from src.tour_schedules.services import get_tour_schedule_service
+from src.tour_itineraries.services import get_tour_itineraries_by_tour_id_service
+from src.destination.services import get_destination_by_tour_id_service
 #generate tour code
 def generate_tour_code():
     current_year = datetime.now().strftime("%Y")
@@ -345,3 +348,35 @@ def filter_tours_service():
             "message": "Lỗi hệ thống khi lọc tour",
             "error": str(e)
         }), 500
+    
+#read tour
+def get_tour_detail_service(tour_id):
+    try:
+
+        if not tour_id:
+            return jsonify({"message": "Thiếu thông tin tour_id"}), 400
+
+        tour = Tours.query.filter_by(tour_id=tour_id).first()
+        if not tour:
+            return jsonify({"message": "Không tìm thấy tour"}), 404
+        if not tour.is_active:
+            return jsonify({"message": "Tour đã bị ẩn hoặc ngừng hoạt động"}), 404
+        
+        tour_data = tour_schema.dump(tour)
+        images = get_tour_images_by_tour_id_service(tour_id)
+        schedules = get_tour_schedule_service(tour_id)
+        itinararies = get_tour_itineraries_by_tour_id_service(tour_id)
+        destinations = get_destination_by_tour_id_service(tour_id)
+        
+        tour_data["images"] = images
+        tour_data["schedules"] = schedules
+        tour_data["itineraries"] = itinararies
+        tour_data["destinations"] = destinations
+
+        return jsonify({"data": tour_data}), 200
+    except Exception as e:
+        print(f"[TourService] Lỗi ở hàm get_tour_detail_service: {str(e)}")
+        return {
+            "success": False,
+            "message": "Lỗi hệ thống, vui lòng thử lại sau"
+        }, 500

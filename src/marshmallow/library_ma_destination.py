@@ -43,3 +43,16 @@ class DestinationCreateTourSchema(ma.SQLAlchemySchema):
     name = ma.auto_field()
 
 destinationCreateTour_schema = DestinationCreateTourSchema(many=True)
+
+class DestinationByTourIDSchema(ma.SQLAlchemySchema):
+    class Meta:
+        model = Destinations
+        load_instance = True
+        include_fk = True
+
+    destination_id = ma.auto_field()
+    name = ma.auto_field()
+    region = ma.auto_field()
+    country = ma.auto_field()
+
+destinationByTourID_schema = DestinationByTourIDSchema(many=True)
