@@ -10,7 +10,6 @@ class TourSchema(ma.SQLAlchemySchema):
     tour_id = ma.auto_field()
     tour_code = ma.auto_field()
     title = ma.auto_field()
-    slug = ma.auto_field()
     duration_days = ma.auto_field()
     duration_nights = ma.auto_field()
     highlights = ma.auto_field()
@@ -58,7 +57,6 @@ class TourInfoSchema(ma.SQLAlchemySchema):
     is_active = ma.auto_field()
     created_at = ma.auto_field()
     transportation = ma.auto_field()
-    slug = ma.auto_field()
 
 tourInfo_schema = TourInfoSchema()
 tourInfos_schema = TourInfoSchema(many=True)

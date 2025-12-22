@@ -10,7 +10,6 @@ class Tours(db.Model):
     tour_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     tour_code = Column(String(50), unique=True, nullable=False)
     title = Column(Text, nullable=False)
-    slug = Column(String(255), unique=True)
     duration_days = Column(Integer, nullable=False)
     duration_nights = Column(Integer, nullable=False)
     highlights = Column(Text)
@@ -46,7 +45,7 @@ class Tours(db.Model):
     favorites = relationship("Favorites", back_populates="tour")
 
     def __init__(self, tour_code, title, duration_days, duration_nights, base_price,
-                 slug=None, highlights=None, included_services=None, excluded_services=None, attractions=None,
+                highlights=None, included_services=None, excluded_services=None, attractions=None,
                  cuisine=None, suitable_for=None, ideal_time=None, transportation=None, promotions=None,
                  child_price=None, infant_price=None, main_image_url=None,depart_destination=None, main_image_public_id =None,
                  created_by=None, is_featured=False, is_active=True, ):
@@ -54,7 +53,6 @@ class Tours(db.Model):
         self.tour_id = str(uuid.uuid4())
         self.tour_code = tour_code
         self.title = title
-        self.slug = slug
         self.duration_days = duration_days
         self.duration_nights = duration_nights
         self.highlights = highlights

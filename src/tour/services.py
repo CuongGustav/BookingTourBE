@@ -50,7 +50,6 @@ def generate_tour_code():
 def create_tour_admin_service():
     try: 
         title = request.form.get("title")
-        slug = request.form.get("slug")
         duration_days = request.form.get("duration_days")
         duration_nights = request.form.get("duration_nights")
         highlights = request.form.get("highlights")
@@ -108,7 +107,6 @@ def create_tour_admin_service():
         new_tour = Tours(
             tour_code = tour_code,
             title = title,
-            slug = slug,
             duration_days = duration_days,
             duration_nights = duration_nights,
             highlights = highlights,
