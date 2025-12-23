@@ -31,6 +31,7 @@ class TourItineraryReadSchema(ma.SQLAlchemySchema):
         load_instance = True
         include_fk = True
 
+    tour_id = ma.auto_field()
     title = ma.auto_field()
     description = ma.auto_field()
     meals = ma.auto_field()

@@ -43,3 +43,43 @@ def create_tour_destination_admin_service ():
             "message": "Thêm tour và các điểm đến thất bại",
             "error": str(e)
         }), 500
+    
+#update tour destinations admin
+def update_tour_destination_admin_service (tour_id):
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"message":"Dữ liệu gửi không hợp lệ"}), 400
+        
+        destination_ids = data.get("destination_ids")
+        if not destination_ids:
+            return jsonify({"message": "Thiếu destination_ids"}), 400
+        
+        tour = Tours.query.get(tour_id)
+        if not tour:
+            return jsonify({"message": "Tour không tồn tại"}), 404
+        
+        Tour_Destinations.query.filter_by(tour_id=tour_id).delete()
+        
+        for dest_id in destination_ids:
+            if not Destinations.query.get(dest_id):
+                return jsonify({"message": f"Điểm đến ID {dest_id} không tồn tại"}), 404
+            new_tour_destinations = Tour_Destinations(
+                tour_id=tour_id, 
+                destination_id=dest_id
+            )
+            db.session.add(new_tour_destinations)
+
+        db.session.commit()
+        return jsonify ({"message": "Cập nhật tour và các điểm đến thành công",}), 200
+    
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(
+            f"Lỗi cập nhật tour và các điểm đến: {str(e)}",
+            exc_info=True
+        )
+        return jsonify({
+            "message": "Cập nhật tour và các điểm đến thất bại",
+            "error": str(e)
+        }), 500

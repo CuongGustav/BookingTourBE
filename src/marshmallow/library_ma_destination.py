@@ -16,6 +16,7 @@ class DestinationSchema(ma.SQLAlchemySchema):
     image_public_id = ma.auto_field()
     is_active = ma.auto_field()
     created_at = ma.auto_field()
+    updated_at = ma.auto_field()
 
 destination_schema = DestinationSchema()
 destinations_schema = DestinationSchema(many=True)

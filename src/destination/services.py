@@ -29,15 +29,6 @@ def get_cloudinary_usage_service():
             "error": str(e)
         }), 500
 
-BASE_DIR = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-)
-DESTINATION_UPLOAD_FOLDER = os.path.join(
-    BASE_DIR, "static", "destination"
-)
-DESTINATION_STATIC_URL = "/static/destination"
-os.makedirs(DESTINATION_UPLOAD_FOLDER, exist_ok=True)
-
 #add destination
 @require_role("qcadmin")
 def add_destination_service():
@@ -224,10 +215,14 @@ def delete_destination_admin_service(destination_id):
                 "message": "Không tìm thấy điểm đến"
             }), 404
 
-        if destination.tours and len(destination.tours) > 0:
+        used_count = Tour_Destinations.query.filter_by(
+            destination_id=destination_id
+        ).count()
+
+        if used_count > 0:
             return jsonify({
                 "message": "Không thể xoá điểm đến vì đang có tour sử dụng",
-                "total_tours": len(destination.tours)
+                "total_tours": used_count
             }), 400
 
         if destination.image_public_id:

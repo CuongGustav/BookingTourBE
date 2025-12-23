@@ -8,6 +8,7 @@ from sqlalchemy.orm import joinedload
 from werkzeug.utils import secure_filename
 from flask_jwt_extended import get_jwt_identity
 from src.extension import db
+from src.model.model_booking import BookingStatusEnum, Bookings
 from src.model.model_destination import Destinations
 from src.model.model_tour import Tours
 from src.model.model_tour_destination import Tour_Destinations
@@ -378,3 +379,174 @@ def get_tour_detail_service(tour_id):
             "success": False,
             "message": "Lỗi hệ thống, vui lòng thử lại sau"
         }, 500
+    
+#read tour admin
+def get_tour_detail_admin_service(tour_id):
+    try:
+
+        if not tour_id:
+            return jsonify({"message": "Thiếu thông tin tour_id"}), 400
+
+        tour = Tours.query.filter_by(tour_id=tour_id).first()
+        if not tour:
+            return jsonify({"message": "Không tìm thấy tour"}), 404
+        
+        tour_data = tour_schema.dump(tour)
+        images = get_tour_images_by_tour_id_service(tour_id)
+        schedules = get_tour_schedule_service(tour_id)
+        itinararies = get_tour_itineraries_by_tour_id_service(tour_id)
+        destinations = get_destination_by_tour_id_service(tour_id)
+        
+        tour_data["images"] = images
+        tour_data["schedules"] = schedules
+        tour_data["itineraries"] = itinararies
+        tour_data["destinations"] = destinations
+
+        return jsonify({"data": tour_data}), 200
+    except Exception as e:
+        print(f"[TourService] Lỗi ở hàm get_tour_detail_service: {str(e)}")
+        return {
+            "success": False,
+            "message": "Lỗi hệ thống, vui lòng thử lại sau"
+        }, 500
+
+#delete tour (soft delete)
+def delete_soft_tour_admin_service(tour_id):
+    try:
+        tour = Tours.query.filter_by(tour_id=tour_id).first()
+        if not tour:
+            return jsonify({"message": "Không tìm thấy tour"}), 404
+        
+        # check booking/payment is active yet
+        active_bookings = Bookings.query.filter(
+            Bookings.tour_id == tour_id,
+            Bookings.status.in_([
+                BookingStatusEnum.PENDING.value,
+                BookingStatusEnum.CONFIRMED.value
+            ])
+        ).first()
+        
+        if active_bookings:
+            return jsonify({
+                "message": "Không thể xóa tour vì còn booking đang chờ xử lý hoặc đã xác nhận"
+            }), 400
+        
+        # Soft delete: set is_active = False
+        tour.is_active = False
+        db.session.commit()
+        
+        return jsonify({
+            "message": "Xóa mềm (ẩn) tour thành công",
+            "note": "Lịch sử booking và thanh toán được giữ nguyên"
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Lỗi xóa tour: {str(e)}", exc_info=True)
+        return jsonify({
+            "message": "Xóa tour thất bại",
+            "error": str(e)
+        }), 500
+    
+#update tour admin
+def update_tour_admin_service(tour_id):
+    try:
+        tour = Tours.query.filter_by(tour_id=tour_id).first()
+        if not tour:
+            return jsonify({"message": "Không tìm thấy tour"}), 404
+        
+        title = request.form.get("title")
+        duration_days = request.form.get("duration_days")
+        duration_nights = request.form.get("duration_nights")
+        highlights = request.form.get("highlights")
+        included_services = request.form.get("included_services")
+        excluded_services = request.form.get("excluded_services")
+        attractions = request.form.get("attractions")
+        cuisine = request.form.get("cuisine")
+        suitable_for = request.form.get("suitable_for")
+        ideal_time = request.form.get("ideal_time")
+        transportation = request.form.get("transportation")
+        promotions = request.form.get("promotions")
+        depart_destination = request.form.get("depart_destination")
+        base_price = request.form.get("base_price")
+        child_price = request.form.get("child_price")
+        infant_price = request.form.get("infant_price")
+        is_featured = request.form.get("is_featured")
+        is_active = request.form.get("is_active")
+        main_image = request.files.get("main_image")
+
+        required_fields = [title, duration_days, duration_nights, depart_destination, base_price]
+        if not all(required_fields):
+            return jsonify({"message": "Tiêu đề, số ngày, số đêm, điểm khởi hành, giá gốc là bắt buộc"}), 400
+        
+        if title != tour.title and Tours.query.filter(Tours.title.ilike(title), Tours.tour_id != tour_id).first():
+            return jsonify({"message": "Tiêu đề tour đã tồn tại"}), 409
+        
+        try:
+            duration_days = int(duration_days)
+            duration_nights = int(duration_nights)
+            base_price = float(base_price)
+            child_price = float(child_price) if child_price else None
+            infant_price = float(infant_price) if infant_price else None
+            is_featured = bool(int(is_featured)) if is_featured is not None else tour.is_featured
+            is_active = bool(int(is_active)) if is_active is not None else tour.is_active
+        except ValueError:
+            return jsonify({"message": "Dữ liệu số hoặc boolean không hợp lệ"}), 400
+        
+        main_image_url = tour.main_image_url
+        main_image_public_id = tour.main_image_public_id
+
+        if main_image and main_image.filename:
+            ext = main_image.filename.rsplit('.', 1)[1].lower() if '.' in main_image.filename else ''
+            allowed = {'jpg', 'jpeg', 'png', 'webp', 'gif'}
+            if ext not in allowed:
+                return jsonify({"message": "Định dạng ảnh không hợp lệ"}), 400
+
+            try:
+                if main_image_public_id:
+                    cloudinary.uploader.destroy(main_image_public_id)
+
+                unique_name = str(uuid.uuid4())
+                upload_result = cloudinary.uploader.upload(
+                    main_image,
+                    folder="tours",
+                    public_id=unique_name,
+                    format=ext,
+                    transformation=[{'quality': "auto", 'fetch_format': "auto"}]
+                )
+                main_image_url = upload_result["secure_url"]
+                main_image_public_id = upload_result["public_id"]
+            except Exception as e:
+                current_app.logger.error(f"Cloudinary upload failed: {str(e)}")
+                return jsonify({"message": "Upload ảnh thất bại"}), 500
+            
+        tour.title = title
+        tour.duration_days = duration_days
+        tour.duration_nights = duration_nights
+        tour.highlights = highlights 
+        tour.included_services = included_services 
+        tour.excluded_services = excluded_services 
+        tour.attractions = attractions 
+        tour.cuisine = cuisine 
+        tour.suitable_for = suitable_for 
+        tour.ideal_time = ideal_time
+        tour.transportation = transportation 
+        tour.promotions = promotions 
+        tour.depart_destination = depart_destination
+        tour.base_price = base_price
+        tour.child_price = child_price
+        tour.infant_price = infant_price
+        tour.main_image_url = main_image_url
+        tour.main_image_public_id = main_image_public_id
+        tour.is_featured = is_featured
+        tour.is_active = is_active
+
+        db.session.commit()
+        tour_schema.dump(tour)
+
+        return jsonify({"message": "Cập nhật tour thành công", "tour_id": tour.tour_id}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Lỗi cập nhật tour: {str(e)}", exc_info=True)
+        return jsonify({"message": "Cập nhật tour thất bại", "error": str(e)}), 500

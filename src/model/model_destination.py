@@ -16,6 +16,8 @@ class Destinations(db.Model):
     image_public_id = Column(String(255))
     is_active = Column(Boolean, default=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
 
     tour_destinations = relationship("Tour_Destinations", back_populates="destination")
 

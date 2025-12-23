@@ -10,7 +10,8 @@ class Tour_Destinations(db.Model):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     tour_id = Column(String(36), ForeignKey("tours.tour_id"), nullable=False)
     destination_id = Column(String(36), ForeignKey("destinations.destination_id"), nullable=False)
-    created_at = Column(TIMESTAMP, server_default=func.now(), nullable=False)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
     tour = relationship("Tours", back_populates="tour_destinations")
     destination = relationship("Destinations", back_populates="tour_destinations")
