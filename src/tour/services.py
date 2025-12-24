@@ -3,13 +3,14 @@ import os
 import uuid
 import cloudinary
 from flask import current_app, jsonify, request
-from sqlalchemy import exists
+from sqlalchemy import and_, exists
 from sqlalchemy.orm import joinedload
 from werkzeug.utils import secure_filename
 from flask_jwt_extended import get_jwt_identity
 from src.extension import db
 from src.model.model_booking import BookingStatusEnum, Bookings
 from src.model.model_destination import Destinations
+from src.model.model_favorite import Favorites
 from src.model.model_tour import Tours
 from src.model.model_tour_destination import Tour_Destinations
 from src.model.model_tour_schedule import Tour_Schedules, ScheduleStatusEnum
@@ -19,6 +20,7 @@ from src.tour_images.services import get_tour_images_by_tour_id_service
 from src.tour_schedules.services import get_tour_schedule_service
 from src.tour_itineraries.services import get_tour_itineraries_by_tour_id_service
 from src.destination.services import get_destination_by_tour_id_service
+from src.favorites.services import check_favorite_service
 #generate tour code
 def generate_tour_code():
     current_year = datetime.now().strftime("%Y")
@@ -180,6 +182,7 @@ def get_all_tour_service():
             )
             schedules_data = tour_schedule_schema.dump(upcoming_schedules)
             tour_data["upcoming_schedules"] = schedules_data
+            tour_data["is_like"] = check_favorite_service(tour.tour_id)
             result.append(tour_data)
         if not result:
             return jsonify({"message": "Không có tour nào trong hệ thống", "data": []}), 200
@@ -189,6 +192,62 @@ def get_all_tour_service():
         current_app.logger.error(f"Lỗi khi lấy danh sách tour: {str(e)}", exc_info=True)
         return jsonify({"message": f"Lỗi hệ thống: {str(e)}"}), 500 
     
+#get all tour by account and like
+def get_all_tour_by_account_and_like_service():
+    account_id = get_jwt_identity()
+    if not account_id:
+        return jsonify({"message": "Không có account_id"}), 400
+
+    try:
+        tours = (
+            db.session.query(Tours)
+            .join(
+                Favorites,
+                (Favorites.tour_id == Tours.tour_id) &
+                (Favorites.account_id == account_id)
+            )
+            .options(joinedload(Tours.schedules))
+            .filter(Tours.is_active == True)
+            .order_by(Tours.created_at.desc())
+            .all()
+        )
+
+        result = []
+
+        for tour in tours:
+            tour_data = tourInfo_schema.dump(tour)
+
+            upcoming_schedules = (
+                Tour_Schedules.query
+                .filter(
+                    Tour_Schedules.tour_id == tour.tour_id,
+                    Tour_Schedules.departure_date >= datetime.now().date(),
+                    Tour_Schedules.status == ScheduleStatusEnum.AVAILABLE.value
+                )
+                .order_by(Tour_Schedules.departure_date.asc())
+                .limit(2)
+                .all()
+            )
+
+            tour_data["upcoming_schedules"] = tour_schedule_schema.dump(upcoming_schedules)
+
+            # Vì đã JOIN favorites → chắc chắn là like
+            tour_data["is_like"] = True
+
+            result.append(tour_data)
+
+        return jsonify({
+            "data": result,
+            "length": len(result)
+        }), 200
+
+    except Exception as e:
+        current_app.logger.error(
+            f"Lỗi khi lấy danh sách tour đã like: {str(e)}",
+            exc_info=True
+        )
+        return jsonify({"message": "Lỗi hệ thống"}), 500
+
 #get 8 tour
 def get_8_tour_service():
     try:
@@ -216,6 +275,7 @@ def get_8_tour_service():
             )
             schedules_data = tour_schedule_schema.dump(upcoming_schedules)
             tour_data["upcoming_schedules"] = schedules_data
+            tour_data["is_like"] = check_favorite_service(tour.tour_id)
             result.append(tour_data)
         if not result:
             return jsonify({"message": "Không có tour nào trong hệ thống", "data": []}), 200
@@ -329,6 +389,7 @@ def filter_tours_service():
             
             schedules_data = tour_schedule_schema.dump(upcoming_schedules)
             tour_data["upcoming_schedules"] = schedules_data
+            tour_data["is_like"] = check_favorite_service(tour.tour_id)
 
             result.append(tour_data)
 
