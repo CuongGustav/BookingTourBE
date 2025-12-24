@@ -27,3 +27,14 @@ class TourScheduleSchema(ma.SQLAlchemySchema):
     status = ma.auto_field()
     
 tour_schedule_schema = TourScheduleSchema(many=True)
+
+class TourScheduleUpdateSchema(ma.Schema):
+    schedule_id = ma.Str(allow_none=True, dump_default=None) 
+    departure_date = ma.Date(required=True)
+    return_date = ma.Date(required=True)
+    available_seats = ma.Int(required=True)
+    price_adult = ma.Decimal(required=True)
+    price_child = ma.Decimal(required=False, allow_none=True)
+    price_infant = ma.Decimal(required=False, allow_none=True)
+
+tour_schedule_update_schema = TourScheduleUpdateSchema()

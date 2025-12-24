@@ -92,57 +92,88 @@ def get_tour_images_by_tour_id_service (tour_id: str):
     
 # update tour images by tour_id
 def update_tour_images_admin_service(tour_id):
+
+    if not tour_id:
+            return jsonify({"message": "Thiếu tour_id"}), 400
+    tour = Tours.query.get(tour_id)
+    if not tour:
+        return jsonify({"message": "Tour không tồn tại"}), 404
     try:
-        files = request.files.getlist("images") 
-        images_data = request.form.get("images_data")
-
-        if images_data:
-            import json
-            images_data = json.loads(images_data)
-        else:
-            images_data = []
-
-        tour = Tours.query.get(tour_id)
-        if not tour:
-            return jsonify({"message": "Tour không tồn tại"}), 404
-
-        existing_images = Tour_Images.query.filter_by(tour_id=tour_id).all()
-        existing_image_map = {img.tour_image_id: img for img in existing_images}
-        existing_public_ids = {img.image_public_id for img in existing_images if img.image_public_id}
-
-        updated_image_ids = set()
-        errors = []
-        new_uploaded_public_ids = set()
-
-        file_index = 0 
-        for idx, item in enumerate(images_data):
-            tour_image_id = item.get("tour_image_id")
-            display_order = item.get("display_order", idx + 1)
-
-            if tour_image_id and tour_image_id in existing_image_map:
-                image = existing_image_map[tour_image_id]
-                image.display_order = display_order
-                updated_image_ids.add(tour_image_id)
-
-            elif "new" in item:  
-                if file_index >= len(files):
-                    errors.append({"index": idx, "error": "Thiếu file ảnh mới"})
-                    continue
-
-                file = files[file_index]
-                file_index += 1
-
+        image_ids_to_delete = request.form.getlist("image_ids")
+        
+        new_files = request.files.getlist("images")
+        display_orders = request.form.getlist("display_orders")
+        
+        # Validate that at least one action is specified
+        if not image_ids_to_delete and (not new_files or len(new_files) == 0 or new_files[0].filename == ''):
+            return jsonify({"message": "Cần chỉ định ít nhất một hành động: xóa ảnh cũ hoặc thêm ảnh mới"}), 400
+        
+        # Validate new images and display orders match
+        if new_files and new_files[0].filename != '':
+            if len(new_files) != len(display_orders):
+                return jsonify({"message": "Số lượng ảnh và display_order phải bằng nhau"}), 400
+        
+        deleted_images = []
+        failed_deletes = []
+        
+        # Delete old images
+        if image_ids_to_delete:
+            for image_id in image_ids_to_delete:
+                try:
+                    image = Tour_Images.query.filter_by(
+                        tour_image_id=image_id,
+                        tour_id=tour_id
+                    ).first()
+                    
+                    if not image:
+                        failed_deletes.append({
+                            "image_id": image_id,
+                            "error": "Không tìm thấy ảnh"
+                        })
+                        continue
+                    
+                    # Delete from Cloudinary
+                    if image.image_public_id:
+                        try:
+                            cloudinary.uploader.destroy(image.image_public_id)
+                        except Exception as e:
+                            current_app.logger.warning(
+                                f"Failed to delete from Cloudinary: {image.image_public_id}, {str(e)}"
+                            )
+                    
+                    # Delete from database
+                    db.session.delete(image)
+                    deleted_images.append(image_id)
+                    
+                except Exception as e:
+                    current_app.logger.warning(f"Failed to delete image {image_id}: {str(e)}")
+                    failed_deletes.append({
+                        "image_id": image_id,
+                        "error": str(e)
+                    })
+        
+        # Upload new images
+        created_images = []
+        failed_uploads = []
+        
+        if new_files and new_files[0].filename != '':
+            for idx, file in enumerate(new_files):
                 if not file or file.filename == '':
-                    errors.append({"index": idx, "error": "File ảnh rỗng"})
+                    failed_uploads.append({"index": idx, "error": "File rỗng"})
                     continue
-
+                
+                # Validate file extension
                 ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
                 allowed = {'jpg', 'jpeg', 'png', 'webp', 'gif'}
                 if ext not in allowed:
-                    errors.append({"index": idx, "error": f"Định dạng không hợp lệ: {ext}"})
+                    failed_uploads.append({
+                        "index": idx,
+                        "error": f"Định dạng không cho phép: {ext}"
+                    })
                     continue
-
+                
                 try:
+                    # Upload to Cloudinary
                     unique_name = str(uuid.uuid4())
                     upload_result = cloudinary.uploader.upload(
                         file,
@@ -153,51 +184,38 @@ def update_tour_images_admin_service(tour_id):
                     )
                     image_url = upload_result["secure_url"]
                     image_public_id = upload_result["public_id"]
-
+                    
+                    # Create new image record
                     new_image = Tour_Images(
                         tour_id=tour_id,
                         image_url=image_url,
                         image_public_id=image_public_id,
-                        display_order=display_order
+                        display_order=int(display_orders[idx])
                     )
                     db.session.add(new_image)
-                    new_uploaded_public_ids.add(image_public_id)
-
+                    created_images.append(new_image)
+                    
                 except Exception as e:
-                    errors.append({"index": idx, "error": f"Upload thất bại: {str(e)}"})
-                    continue
-            else:
-                errors.append({"index": idx, "error": "Dữ liệu ảnh không hợp lệ"})
-                continue
-
-        for image in existing_images:
-            if image.tour_image_id not in updated_image_ids:
-                if image.image_public_id:
-                    try:
-                        cloudinary.uploader.destroy(image.image_public_id)
-                    except Exception as e:
-                        current_app.logger.warning(f"Xóa ảnh Cloudinary thất bại {image.image_public_id}: {str(e)}")
-
-                db.session.delete(image)
-
-        if errors:
-            for public_id in new_uploaded_public_ids:
-                try:
-                    cloudinary.uploader.destroy(public_id)
-                except:
-                    pass
-
+                    current_app.logger.warning(
+                        f"Cloudinary upload failed for image {idx}: {str(e)}"
+                    )
+                    failed_uploads.append({"index": idx, "error": str(e)})
+        
+        if failed_deletes or failed_uploads:
             db.session.rollback()
             return jsonify({
-                "message": "Cập nhật thư viện ảnh thất bại",
-                "errors": errors
+                "message": "Cập nhật ảnh tour không hoàn toàn thành công",
+                "deleted": deleted_images,
+                "delete_errors": failed_deletes,
+                "upload_errors": failed_uploads
             }), 400
-
+        
+        # Commit all changes
         db.session.commit()
-        return jsonify({"message": "Cập nhật thư viện ảnh thành công"}), 200
-
+        
+        return jsonify({"message": "Cập nhật ảnh tour thành công"}), 200
+        
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Lỗi cập nhật tour images: {str(e)}", exc_info=True)
         return jsonify({"message": "Cập nhật thất bại", "error": str(e)}), 500
-

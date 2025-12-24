@@ -471,8 +471,8 @@ def update_tour_admin_service(tour_id):
         base_price = request.form.get("base_price")
         child_price = request.form.get("child_price")
         infant_price = request.form.get("infant_price")
-        is_featured = request.form.get("is_featured")
-        is_active = request.form.get("is_active")
+        is_featured_raw = request.form.get("is_featured")
+        is_active_raw = request.form.get("is_active")
         main_image = request.files.get("main_image")
 
         required_fields = [title, duration_days, duration_nights, depart_destination, base_price]
@@ -486,10 +486,18 @@ def update_tour_admin_service(tour_id):
             duration_days = int(duration_days)
             duration_nights = int(duration_nights)
             base_price = float(base_price)
-            child_price = float(child_price) if child_price else None
-            infant_price = float(infant_price) if infant_price else None
-            is_featured = bool(int(is_featured)) if is_featured is not None else tour.is_featured
-            is_active = bool(int(is_active)) if is_active is not None else tour.is_active
+            child_price = float(child_price) if child_price and child_price != 'null' else None
+            infant_price = float(infant_price) if infant_price and infant_price != 'null' else None
+            
+            if is_featured_raw is not None:
+                is_featured = str(is_featured_raw).lower() in ['1', 'true']
+            else:
+                is_featured = tour.is_featured
+
+            if is_active_raw is not None:
+                is_active = str(is_active_raw).lower() in ['1', 'true']
+            else:
+                is_active = tour.is_active
         except ValueError:
             return jsonify({"message": "Dữ liệu số hoặc boolean không hợp lệ"}), 400
         
