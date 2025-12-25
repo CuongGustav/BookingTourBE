@@ -101,3 +101,60 @@ def get_all_coupon_admin_service():
         return coupons_schema.dump(coupons),200
     except Exception as e:
         return jsonify({"message": f"Lỗi hệ thống khi lấy danh sách mã giảm giá: {str(e)}"}), 500  
+
+#read detail coupon admin
+def read_coupon_detail_admin_service(coupon_id):
+    try:
+        if not coupon_id:
+            return jsonify({"message": "Thiếu thông tin coupon_id"}), 400
+        
+        coupon = Coupons.query.filter_by(coupon_id=coupon_id).first()
+        if not coupon:
+            return jsonify({"message": "Không tìm thấy coupon"}), 404
+        
+        coupon_data = coupon_schema.dump(coupon)
+
+        return jsonify({"data": coupon_data}),200
+    except Exception as e:
+        print(f"lỗi get tour: {str(e)}")
+        return {
+            "success": False,
+            "message": "Lỗi hệ thống, vui lòng thử lại sau"
+        }, 500
+    
+#delete coupon admin
+def delete_coupon_admin_service(coupon_id):
+    try:
+        if not coupon_id:
+            return jsonify({"message": "Thiếu thông tin coupon_id"}), 400
+        
+        coupon = Coupons.query.filter_by(coupon_id=coupon_id).first()
+        if not coupon:
+            return jsonify({"message": "Không tìm thấy coupon"}), 404
+        
+        if coupon.image_coupon_public_id:
+            try:
+                cloudinary.uploader.destroy(coupon.image_coupon_public_id)
+            except Exception as e:
+                current_app.logger.warning(
+                    f"Không thể xoá ảnh Cloudinary: {str(e)}"
+                )
+
+        db.session.delete(coupon)
+        db.session.commit()
+
+        return jsonify({
+            "message": "Xoá mã giảm giá thành công"
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(
+            f"Lỗi xoá coupon: {str(e)}",
+            exc_info=True
+        )
+        return jsonify({
+            "message": "Xoá mã giảm giá thất bại",
+            "error": str(e)
+        }), 500
+
