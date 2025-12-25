@@ -31,6 +31,8 @@ class Coupons(db.Model):
     created_by = Column(String(36), ForeignKey("accounts.account_id"))
     created_at = Column(TIMESTAMP, server_default=func.now(), nullable=False)
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now(), nullable=False)
+    image_coupon_url = Column(String(255))
+    image_coupon_public_id = Column(String(255))
 
     creator = relationship("Accounts", back_populates="created_coupons")
     bookings = relationship("Bookings", back_populates="coupon")
@@ -38,7 +40,8 @@ class Coupons(db.Model):
     def __init__(self, code, discount_type, discount_value,
                  valid_from, valid_to, description=None,
                  min_order_amount=0, max_discount_amount=None,
-                 usage_limit=None, created_by=None, is_active=True):
+                 usage_limit=None, created_by=None, is_active=True,
+                 image_coupon_url=None, image_coupon_public_id=None ):
         self.coupon_id = str(uuid.uuid4())
         self.code = code
         self.description = description
@@ -51,3 +54,5 @@ class Coupons(db.Model):
         self.valid_to = valid_to
         self.created_by = created_by
         self.is_active = is_active
+        self.image_coupon_url = image_coupon_url
+        self.image_coupon_public_id = image_coupon_public_id
