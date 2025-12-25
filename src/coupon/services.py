@@ -1,10 +1,12 @@
+import datetime
+from decimal import Decimal
 import uuid
 from flask import current_app, jsonify, request
 import cloudinary
 from flask_jwt_extended import get_jwt_identity
 from src.model.model_coupon import Coupons
 from src.extension import db
-from src.marshmallow.library_ma_coupon import coupon_schema
+from src.marshmallow.library_ma_coupon import (coupon_schema, coupons_schema)
 
 #add favorite
 def add_coupon_admin_service():
@@ -12,20 +14,30 @@ def add_coupon_admin_service():
         code = request.form.get("code")
         description = request.form.get("description")
         discount_type = request.form.get("discount_type")
-        discount_value = request.form.get("discount_value")
-        min_order_amount = request.form.get("min_order_amount")
-        max_discount_amount = request.form.get("max_discount_amount")
-        usage_limit = request.form.get("usage_limit")
+        discount_value = Decimal(request.form.get("discount_value"))
+        min_order_amount = Decimal(request.form.get("min_order_amount"))
+        max_discount_amount = Decimal(request.form.get("max_discount_amount"))
+        usage_limit = int(request.form.get("usage_limit"))
         valid_from = request.form.get("valid_from")
         valid_to = request.form.get("valid_to")
+        created_by = get_jwt_identity()
         coupon_image = request.files.get("coupon_image")
 
-        required_fields = [code, discount_type, discount_value, min_order_amount, max_discount_amount, usage_limit, valid_from, valid_to]
+        required_fields = [code, discount_type, discount_value, min_order_amount, usage_limit, valid_from, valid_to]
         if not all(required_fields):
             return jsonify({"message":"Thiếu trường bắt buộc"}),400
         
         if Coupons.query.filter(Coupons.code.ilike(code)).first():
             return jsonify({"message":"Code coupon đã tồn tại"}),409
+        
+        if discount_type == "percentage":
+            if discount_value <= 0 or discount_value > 100:
+                return jsonify({"message": "Giảm giá % phải > 0 và ≤ 100"}), 400
+
+        if discount_type == "fixed":
+            if discount_value <= 0:
+                return jsonify({"message": "Giảm giá cố định phải > 0"}), 400
+
         
         image_coupon_url = None
         image_coupon_public_id = None
@@ -61,12 +73,12 @@ def add_coupon_admin_service():
             valid_from = valid_from,
             valid_to = valid_to,
             image_coupon_url = image_coupon_url,
+            created_by=created_by,
             image_coupon_public_id = image_coupon_public_id
         )
 
         db.session.add(new_coupon)
         db.session.commit()
-        coupon_schema.dump(new_coupon)
         return jsonify({"message": "Thêm mã giảm giá thành công"}), 201
     
     except Exception as e:
@@ -79,3 +91,13 @@ def add_coupon_admin_service():
             "message": "Thêm mã giảm giá thất bại",
             "error": str(e)
         }), 500
+    
+#get all coupon admin
+def get_all_coupon_admin_service():
+    try:
+        coupons = Coupons.query.order_by(Coupons.created_at.desc()).all()
+        if not coupons:
+            return jsonify({"message":"Không có mã giảm giá nào trong hệ thống", "data":[]}),200
+        return coupons_schema.dump(coupons),200
+    except Exception as e:
+        return jsonify({"message": f"Lỗi hệ thống khi lấy danh sách mã giảm giá: {str(e)}"}), 500  

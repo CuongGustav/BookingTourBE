@@ -1,7 +1,7 @@
 from src.extension import ma
 from src.model.model_coupon import Coupons
 
-class CouponSchema(ma.SQLAlchemySchema):
+class ReadCouponAdminSchema(ma.SQLAlchemySchema):
     class Meta:
         model = Coupons
         load_instance = True
@@ -25,4 +25,5 @@ class CouponSchema(ma.SQLAlchemySchema):
     image_coupon_url = ma.auto_field()
     image_coupon_public_id = ma.auto_field()
 
-coupon_schema = CouponSchema()
+coupon_schema = ReadCouponAdminSchema()
+coupons_schema = ReadCouponAdminSchema(many=True)

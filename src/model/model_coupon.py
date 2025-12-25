@@ -20,9 +20,9 @@ class Coupons(db.Model):
         SAEnum(DiscountTypeEnum, values_callable=lambda obj: [e.value for e in obj], native_enum=False),
         nullable=False
     )
-    discount_value = Column(DECIMAL(10,2), nullable=False)
-    min_order_amount = Column(DECIMAL(10,2), default=0)
-    max_discount_amount = Column(DECIMAL(10,2))
+    discount_value = Column(DECIMAL(18,2), nullable=False)
+    min_order_amount = Column(DECIMAL(18,2), default=0)
+    max_discount_amount = Column(DECIMAL(18,2))
     usage_limit = Column(Integer)
     used_count = Column(Integer, default=0)
     valid_from = Column(DateTime, nullable=False)
