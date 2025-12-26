@@ -2,7 +2,7 @@ from flask import Blueprint
 from flask_jwt_extended import jwt_required
 from src.common.decorators import require_role
 from src.coupon.services import (add_coupon_admin_service,get_all_coupon_admin_service, read_coupon_detail_admin_service,
-                                 delete_coupon_admin_service)
+                                 delete_coupon_admin_service, update_coupon_admin_service)
 
 coupon = Blueprint("coupon", __name__)
 
@@ -26,6 +26,13 @@ def get_all_coupon_admin():
 @require_role("qcadmin")
 def read_coupon_detail_admin(coupon_id):
     return read_coupon_detail_admin_service(coupon_id)
+
+#update coupon admin
+@coupon.route("/admin/update/<string:coupon_id>", methods=["PUT"])
+@jwt_required()
+@require_role("qcadmin")
+def update_coupon_admin(coupon_id):
+    return update_coupon_admin_service(coupon_id)
 
 #delete coupon admin
 @coupon.route("/admin/delete/<string:coupon_id>", methods=["DELETE"])

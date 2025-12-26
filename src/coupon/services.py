@@ -122,6 +122,105 @@ def read_coupon_detail_admin_service(coupon_id):
             "message": "Lỗi hệ thống, vui lòng thử lại sau"
         }, 500
     
+#update coupon admin
+def update_coupon_admin_service(coupon_id):
+    try:
+        if not coupon_id:
+            return jsonify({"message": "Thiếu thông tin coupon_id"}), 400
+        
+        coupon = Coupons.query.filter_by(coupon_id=coupon_id).first()
+        if not coupon:
+            return jsonify({"message": "Không tìm thấy coupon"}), 404
+        
+        code = request.form.get("code")
+        description = request.form.get("description")
+        discount_type = request.form.get("discount_type")
+        discount_value = Decimal(request.form.get("discount_value"))
+        min_order_amount = Decimal(request.form.get("min_order_amount"))
+        max_discount_amount = Decimal(request.form.get("max_discount_amount"))
+        usage_limit = int(request.form.get("usage_limit"))
+        valid_from = request.form.get("valid_from")
+        valid_to = request.form.get("valid_to")
+        is_active = request.form.get("is_active")
+        created_by = get_jwt_identity()
+        coupon_image = request.files.get("coupon_image")
+
+        required_fields = [code, discount_type, discount_value, min_order_amount, usage_limit, valid_from, valid_to]
+        if not all(required_fields):
+            return jsonify({"message":"Thiếu trường bắt buộc"}),400
+        
+        existing = Coupons.query.filter(
+            Coupons.code.ilike(code),
+            Coupons.coupon_id != coupon_id
+        ).first()
+
+        if existing:
+            return jsonify({"message":"Code coupon đã tồn tại"}),409
+
+        
+        if discount_type == "percentage":
+            if discount_value <= 0 or discount_value > 100:
+                return jsonify({"message": "Giảm giá % phải > 0 và ≤ 100"}), 400
+
+        if discount_type == "fixed":
+            if discount_value <= 0:
+                return jsonify({"message": "Giảm giá cố định phải > 0"}), 400
+
+        coupon.code = code
+        coupon.description = description
+        coupon.discount_type = discount_type
+        coupon.discount_value = discount_value
+        coupon.min_order_amount = min_order_amount
+        coupon.max_discount_amount = max_discount_amount
+        coupon.usage_limit = usage_limit
+        coupon.valid_from = valid_from
+        coupon.valid_to = valid_to
+        coupon.created_by = created_by
+        if is_active is not None:
+            coupon.is_active = is_active.lower() in ["true", "1"]
+
+        if coupon_image and coupon_image.filename:
+            if coupon.image_coupon_public_id:
+                try:
+                    cloudinary.uploader.destroy(coupon.image_coupon_public_id)
+                except Exception as e:
+                    current_app.logger.warning(f"Delete old Cloudinary image failed: {str(e)}")
+
+            ext = coupon_image.filename.rsplit('.', 1)[1].lower() if '.' in coupon_image.filename else ''
+            if ext not in {'jpg', 'jpeg', 'png', 'webp', 'gif'}:
+                return jsonify({"message": "Định dạng ảnh không hợp lệ"}), 400
+
+            try:
+                unique_name = str(uuid.uuid4())
+                upload_result = cloudinary.uploader.upload(
+                    coupon_image,
+                    folder="coupons",
+                    public_id=unique_name,
+                    format=ext,
+                    transformation=[{'quality': "auto", 'fetch_format': "auto"}]
+                )
+                coupon.image_coupon_url = upload_result["secure_url"]
+                coupon.image_coupon_public_id = upload_result["public_id"]
+            except Exception as e:
+                current_app.logger.warning(f"Cloudinary upload failed: {str(e)}")
+        
+        db.session.commit()
+
+        return jsonify({"message": "Cập nhật điểm đến thành công",}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(
+            f"LỖI UPDATE COUPON: {str(e)}",
+            exc_info=True
+        )
+        return jsonify({
+            "message": "Failed to update COUPON",
+            "error": str(e)
+        }), 500
+
+
+
 #delete coupon admin
 def delete_coupon_admin_service(coupon_id):
     try:
