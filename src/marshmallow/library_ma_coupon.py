@@ -27,3 +27,13 @@ class ReadCouponAdminSchema(ma.SQLAlchemySchema):
 
 coupon_schema = ReadCouponAdminSchema()
 coupons_schema = ReadCouponAdminSchema(many=True)
+
+class ReadCouponImageSchema(ma.SQLAlchemySchema):
+    class Meta:
+        model = Coupons
+        load_instance = True
+        include_fk = True
+    
+    image_coupon_url = ma.auto_field()
+
+readCouponImages_schema = ReadCouponImageSchema(many=True)

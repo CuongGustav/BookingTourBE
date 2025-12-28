@@ -6,7 +6,7 @@ import cloudinary
 from flask_jwt_extended import get_jwt_identity
 from src.model.model_coupon import Coupons
 from src.extension import db
-from src.marshmallow.library_ma_coupon import (coupon_schema, coupons_schema)
+from src.marshmallow.library_ma_coupon import (coupon_schema, coupons_schema, readCouponImages_schema)
 
 #add favorite
 def add_coupon_admin_service():
@@ -206,7 +206,7 @@ def update_coupon_admin_service(coupon_id):
         
         db.session.commit()
 
-        return jsonify({"message": "Cập nhật điểm đến thành công",}), 200
+        return jsonify({"message": "Cập nhật mã giảm giá thành công",}), 200
 
     except Exception as e:
         db.session.rollback()
@@ -257,3 +257,12 @@ def delete_coupon_admin_service(coupon_id):
             "error": str(e)
         }), 500
 
+#read all coupon image
+def read_all_coupon_image_service():
+    try:
+        coupons = Coupons.query.filter(Coupons.is_active == True).order_by(Coupons.created_at.desc()).all()
+        if not coupons:
+            return jsonify({"message":"Không có mã giảm giá nào trong hệ thống", "data":[]}),200
+        return readCouponImages_schema.dump(coupons),200
+    except Exception as e:
+        return jsonify({"message": f"Lỗi hệ thống khi lấy danh sách hình ảnh mã giảm giá: {str(e)}"}), 500
