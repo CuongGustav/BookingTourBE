@@ -25,6 +25,7 @@ class TourSchema(ma.SQLAlchemySchema):
     base_price = ma.auto_field()
     child_price = ma.auto_field()
     infant_price = ma.auto_field()
+    single_room_surcharge = ma.auto_field()
     main_image_url = ma.auto_field()
     main_image_public_id = ma.auto_field()
     rating_average = ma.auto_field()

@@ -71,6 +71,7 @@ def create_tour_admin_service():
         is_featured = request.form.get("is_featured")
         created_by = get_jwt_identity()
         main_image = request.files.get("main_image")
+        single_room_surcharge = request.form.get("single_room_surcharge")
 
         required_fields = [title, duration_days, duration_nights, depart_destination,base_price]
         if not all(required_fields):
@@ -128,7 +129,8 @@ def create_tour_admin_service():
             main_image_url = main_image_url,
             main_image_public_id = main_image_public_id,
             is_featured = is_featured,
-            created_by = created_by
+            created_by = created_by,
+            single_room_surcharge = single_room_surcharge,
         )
         db.session.add(new_tour)
         db.session.commit()
@@ -535,6 +537,7 @@ def update_tour_admin_service(tour_id):
         is_featured_raw = request.form.get("is_featured")
         is_active_raw = request.form.get("is_active")
         main_image = request.files.get("main_image")
+        single_room_surcharge = request.form.get("single_room_surcharge")
 
         required_fields = [title, duration_days, duration_nights, depart_destination, base_price]
         if not all(required_fields):
@@ -609,6 +612,7 @@ def update_tour_admin_service(tour_id):
         tour.main_image_public_id = main_image_public_id
         tour.is_featured = is_featured
         tour.is_active = is_active
+        tour.single_room_surcharge = single_room_surcharge
 
         db.session.commit()
         tour_schema.dump(tour)

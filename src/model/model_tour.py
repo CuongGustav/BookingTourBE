@@ -25,6 +25,7 @@ class Tours(db.Model):
     base_price = Column(DECIMAL(10,2), nullable=False)
     child_price = Column(DECIMAL(10,2))
     infant_price = Column(DECIMAL(10,2))
+    single_room_surcharge = Column(DECIMAL(18,2))
     main_image_url = Column(String(500))
     main_image_public_id = Column(String(500))
     rating_average = Column(DECIMAL(3,2), default=0.00)
@@ -48,7 +49,7 @@ class Tours(db.Model):
                 highlights=None, included_services=None, excluded_services=None, attractions=None,
                  cuisine=None, suitable_for=None, ideal_time=None, transportation=None, promotions=None,
                  child_price=None, infant_price=None, main_image_url=None,depart_destination=None, main_image_public_id =None,
-                 created_by=None, is_featured=False, is_active=True, ):
+                 created_by=None, is_featured=False, is_active=True, single_room_surcharge=None ):
 
         self.tour_id = str(uuid.uuid4())
         self.tour_code = tour_code
@@ -73,3 +74,4 @@ class Tours(db.Model):
         self.transportation = transportation
         self.promotions = promotions
         self.depart_destination = depart_destination
+        self.single_room_surcharge = single_room_surcharge
