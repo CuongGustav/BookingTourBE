@@ -2,7 +2,8 @@ from flask import Blueprint
 from flask_jwt_extended import jwt_required
 from src.common.decorators import require_role
 from src.coupon.services import (add_coupon_admin_service,get_all_coupon_admin_service, read_coupon_detail_admin_service,
-                                 delete_coupon_admin_service, update_coupon_admin_service, read_all_coupon_image_service)
+                                 delete_coupon_admin_service, update_coupon_admin_service, read_all_coupon_image_service,
+                                 read_all_coupon_service)
 
 coupon = Blueprint("coupon", __name__)
 
@@ -45,3 +46,8 @@ def delete_coupon_admin(coupon_id):
 @coupon.route("/allImage", methods=["GET"])
 def read_all_coupon_image():
     return read_all_coupon_image_service()
+
+#read all coupon
+@coupon.route("/all", methods=["GET"])
+def read_all_coupon():
+    return read_all_coupon_service()

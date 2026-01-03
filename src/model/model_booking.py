@@ -48,6 +48,7 @@ class Bookings(db.Model):
     schedule = relationship("Tour_Schedules", back_populates="bookings")
     coupon = relationship("Coupons", back_populates="bookings")
     passengers = relationship("BookingPassengers", cascade="all, delete", back_populates="booking")
+    passenger_contacts = relationship("BookingPassengerContacts", cascade="all, delete", back_populates="booking")
     payments = relationship("Payments", cascade="all, delete", back_populates="booking")
     reviews = relationship("Reviews", cascade="all, delete", back_populates="booking")
 

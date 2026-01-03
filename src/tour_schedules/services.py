@@ -1,7 +1,7 @@
 
 from datetime import date
 from flask import current_app, jsonify, request
-from src.marshmallow.library_ma_tour_schedules import tour_schedule_create_schema, tour_schedule_schema, tour_schedule_update_schema
+from src.marshmallow.library_ma_tour_schedules import tour_schedule_create_schema, tour_schedule_schema, tour_schedule_update_schema, tour_schedule_detail_schema
 from src.model.model_tour import Tours
 from src.model.model_tour_schedule import Tour_Schedules
 from src.extension import db
@@ -153,4 +153,16 @@ def update_tour_schedule_service(tour_id):
 
     except Exception as e:
         db.session.rollback()
+        return jsonify({"message": f"Lỗi server: {str(e)}"}), 500
+    
+#get tour schedule detail
+def get_tour_schedule_detail_service(schedule_id):
+    try:
+        schedule = Tour_Schedules.query.get(schedule_id)
+        if not schedule:
+            return jsonify({"message": "Schedule không tồn tại"}), 404
+        
+        result = tour_schedule_detail_schema.dump(schedule)
+        return jsonify({"data": result}), 200
+    except Exception as e:
         return jsonify({"message": f"Lỗi server: {str(e)}"}), 500

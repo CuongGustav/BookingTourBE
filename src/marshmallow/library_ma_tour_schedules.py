@@ -27,6 +27,7 @@ class TourScheduleSchema(ma.SQLAlchemySchema):
     status = ma.auto_field()
     
 tour_schedule_schema = TourScheduleSchema(many=True)
+tour_schedule_detail_schema = TourScheduleSchema()
 
 class TourScheduleUpdateSchema(ma.Schema):
     schedule_id = ma.Str(allow_none=True, dump_default=None) 

@@ -14,9 +14,10 @@ from .model_review_image import ReviewImages
 from .model_tour_destination import Tour_Destinations
 from .model_tour_itinerary import Tour_Itineraries
 from .model_tour_schedule import Tour_Schedules
+from .model_booking_passenger_contact import BookingPassengerContacts
 
 __all__ = [
-    "Accounts", "Bookings", "Coupons", "Destinations", 
-    "Tours", "Tour_Schedules","Tour_Destinations", "BookingPassengers", "Favorites",
+    "Accounts", "Bookings", "Coupons", "Destinations", "Tours", "Tour_Schedules",
+    "Tour_Destinations", "BookingPassengers", "BookingPassengerContacts", "Favorites",
     "Tour_Images","Tour_Itineraries", "Payments", "PaymentImages", "Reviews", "ReviewImages"
 ]

@@ -37,3 +37,22 @@ class ReadCouponImageSchema(ma.SQLAlchemySchema):
     image_coupon_url = ma.auto_field()
 
 readCouponImages_schema = ReadCouponImageSchema(many=True)
+
+class ReadCouponSchema(ma.SQLAlchemySchema):
+    class Meta:
+        model = Coupons
+        load_instance = True
+        include_fk = True
+
+    code = ma.auto_field()
+    description = ma.auto_field()
+    discount_type = ma.auto_field()
+    discount_value = ma.auto_field()
+    min_order_amount = ma.auto_field()
+    max_discount_amount = ma.auto_field()
+    usage_limit = ma.auto_field()
+    used_count = ma.auto_field()
+    valid_from = ma.auto_field()
+    valid_to = ma.auto_field()
+
+readCoupons_schema = ReadCouponSchema(many=True)

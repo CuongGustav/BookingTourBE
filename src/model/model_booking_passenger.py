@@ -1,6 +1,6 @@
 import uuid
 from enum import Enum as PyEnum
-from sqlalchemy import Column, String, ForeignKey, Date, TIMESTAMP, func, Enum as SAEnum
+from sqlalchemy import Boolean, Column, String, ForeignKey, Date, TIMESTAMP, func, Enum as SAEnum
 from sqlalchemy.orm import relationship
 from src.extension import db
 
@@ -33,12 +33,13 @@ class BookingPassengers(db.Model):
         nullable=True
     )
     id_number = Column(String(50))
+    single_room = Column(Boolean, nullable=False)
     created_at = Column(TIMESTAMP, server_default=func.now(), nullable=False)
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     booking = relationship("Bookings", back_populates="passengers")
 
-    def __init__(self, booking_id, passenger_type, full_name,
+    def __init__(self, booking_id, passenger_type, full_name, single_room=None,
                  date_of_birth=None, gender=None, id_number=None):
         self.passenger_id = str(uuid.uuid4())
         self.booking_id = booking_id
@@ -47,3 +48,4 @@ class BookingPassengers(db.Model):
         self.date_of_birth = date_of_birth
         self.gender = gender
         self.id_number = id_number
+        self.single_room = single_room
