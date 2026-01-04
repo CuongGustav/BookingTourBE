@@ -11,6 +11,9 @@ from src.tour_schedules.controller import tour_schedules
 from src.tour_images.controller import tour_images
 from src.favorites.controller import favorites
 from src.coupon.controller import coupon
+from src.booking.controller import booking
+from src.booking_passengers.controller import booking_passengers
+from src.booking_passenger_contacts.controller import booking_passenger_contact
 
 def create_app(config_file="config.py"):
     app = Flask(__name__)
@@ -46,6 +49,9 @@ def create_app(config_file="config.py"):
     app.register_blueprint(tour_images, url_prefix="/tour_images")
     app.register_blueprint(favorites, url_prefix="/favorites")
     app.register_blueprint(coupon, url_prefix="/coupon")
+    app.register_blueprint(booking, url_prefix="/booking")
+    app.register_blueprint(booking_passengers, url_prefix="/booking-passengers")
+    app.register_blueprint(booking_passenger_contact, url_prefix="/booking-passenger-contact")
 
     #JWT revoke check with Redis
     @jwt.token_in_blocklist_loader
