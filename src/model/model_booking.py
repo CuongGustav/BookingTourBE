@@ -30,6 +30,7 @@ class Bookings(db.Model):
     contact_name = Column(String(255), nullable=False)
     contact_email = Column(String(255), nullable=False)
     contact_phone = Column(String(10), nullable=False)
+    contact_address = Column(String(255), nullable=False)
     special_request = Column(Text)
     # SAEnum dùng để mapping Python Enum với cột trong database
     status = Column(
@@ -48,13 +49,12 @@ class Bookings(db.Model):
     schedule = relationship("Tour_Schedules", back_populates="bookings")
     coupon = relationship("Coupons", back_populates="bookings")
     passengers = relationship("BookingPassengers", cascade="all, delete", back_populates="booking")
-    passenger_contacts = relationship("BookingPassengerContacts", cascade="all, delete", back_populates="booking")
     payments = relationship("Payments", cascade="all, delete", back_populates="booking")
     reviews = relationship("Reviews", cascade="all, delete", back_populates="booking")
 
     def __init__(self, booking_code, account_id, tour_id, schedule_id,
-                 total_price, final_price, contact_name, contact_email, contact_phone,
-                 num_adults=1, num_children=0, num_infants=0,
+                 total_price, final_price, contact_name, contact_email, contact_phone, contact_address,
+                 num_adults=1, num_children=0, num_infants=0, 
                  coupon_id=None, discount_amount=0, special_request=None,
                  status=BookingStatusEnum.PENDING.value, cancellation_reason=None, cancelled_at=None):
         self.booking_id = str(uuid.uuid4())
@@ -72,6 +72,7 @@ class Bookings(db.Model):
         self.contact_name = contact_name
         self.contact_email = contact_email
         self.contact_phone = contact_phone
+        self.contact_address = contact_address
         self.special_request = special_request
         self.status = status
         self.cancellation_reason = cancellation_reason

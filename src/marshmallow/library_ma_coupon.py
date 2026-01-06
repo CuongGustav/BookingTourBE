@@ -44,6 +44,7 @@ class ReadCouponSchema(ma.SQLAlchemySchema):
         load_instance = True
         include_fk = True
 
+    coupon_id = ma.auto_field()
     code = ma.auto_field()
     description = ma.auto_field()
     discount_type = ma.auto_field()
