@@ -54,7 +54,7 @@ class Bookings(db.Model):
 
     def __init__(self, booking_code, account_id, tour_id, schedule_id,
                  total_price, final_price, contact_name, contact_email, contact_phone, contact_address,
-                 num_adults=1, num_children=0, num_infants=0, 
+                 num_adults=1, num_children=0, num_infants=0,
                  coupon_id=None, discount_amount=0, special_request=None,
                  status=BookingStatusEnum.PENDING.value, cancellation_reason=None, cancelled_at=None):
         self.booking_id = str(uuid.uuid4())

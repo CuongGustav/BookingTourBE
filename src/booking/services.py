@@ -1,21 +1,17 @@
-# src/booking/services.py
-# (Cập nhật để service handle response jsonify, nhất quán với favorites và tour)
-
 from datetime import datetime
 import uuid
 from flask import jsonify, request, current_app
 from flask_jwt_extended import get_jwt_identity
 from src.extension import db
+from sqlalchemy.orm import joinedload
 from src.model.model_booking import Bookings, BookingStatusEnum
 from src.model.model_tour import Tours
 from src.model.model_coupon import Coupons
 from src.booking_passengers.services import create_booking_passenger_service
 from src.model.model_tour_schedule import Tour_Schedules
+from src.marshmallow.library_ma_booking import read_booking_user_schema
 
 def generate_booking_code():
-    """
-    Generate booking code theo format BK-YYYYMMDD-LNNNN (L: chữ cái A-Z, NNNN: số 0001-9999)
-    """
     current_date = datetime.now().strftime("%Y%m%d")
     prefix = f"BK-{current_date}"
 
@@ -165,3 +161,28 @@ def create_booking_service():
             "message": "Đặt chỗ thất bại",
             "error": str(e)
         }), 500
+    
+#get booking by account id
+def get_bookings_user_service():
+    try:
+        account_id = get_jwt_identity()
+        if not account_id:
+            return jsonify({"message": "Không tìm thấy account_id từ token"}), 401
+        
+        status = request.args.get("status")
+        query = Bookings.query.options(joinedload(Bookings.tour)).filter_by(account_id=account_id)
+
+        if status:
+            status_upper = status.upper()
+            if status_upper in BookingStatusEnum.__members__:
+                query = query.filter_by(status=status_upper)
+            else:
+                return jsonify({"message": "Trạng thái không hợp lệ"}), 400
+
+        bookings = query.order_by(Bookings.created_at.desc()).all()
+        bookings_data = read_booking_user_schema.dump(bookings)
+
+        return jsonify({"bookings": bookings_data}), 200
+    except Exception as e:
+        current_app.logger.error(f"Lỗi lấy bookings: {str(e)}", exc_info=True)
+        return jsonify({"message": "Lấy bookings thất bại", "error": str(e)}), 500
