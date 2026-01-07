@@ -9,7 +9,7 @@ from src.model.model_tour import Tours
 from src.model.model_coupon import Coupons
 from src.booking_passengers.services import create_booking_passenger_service
 from src.model.model_tour_schedule import Tour_Schedules
-from src.marshmallow.library_ma_booking import read_booking_user_schema
+from src.marshmallow.library_ma_booking import read_booking_user_schema, read_one_booking_user_schema
 
 def generate_booking_code():
     current_date = datetime.now().strftime("%Y%m%d")
@@ -162,7 +162,7 @@ def create_booking_service():
             "error": str(e)
         }), 500
     
-#get booking by account id
+#get all booking by account id
 def get_bookings_user_service():
     try:
         account_id = get_jwt_identity()
@@ -186,3 +186,25 @@ def get_bookings_user_service():
     except Exception as e:
         current_app.logger.error(f"Lỗi lấy bookings: {str(e)}", exc_info=True)
         return jsonify({"message": "Lấy bookings thất bại", "error": str(e)}), 500
+    
+#get all booking by booking id
+def get_booking_by_id_service(booking_id):
+    try:
+        account_id = get_jwt_identity()
+        if not account_id:
+            return jsonify({"message": "Không tìm thấy account_id"}), 401
+
+        booking = Bookings.query.options(
+            joinedload(Bookings.tour),
+            joinedload(Bookings.passengers)
+        ).filter_by(booking_id=booking_id, account_id=account_id).first()
+
+        if not booking:
+            return jsonify({"message": "Booking không tồn tại hoặc không thuộc về bạn"}), 404
+
+        booking_data = read_one_booking_user_schema.dump(booking)
+
+        return jsonify({"booking": booking_data}), 200
+    except Exception as e:
+        current_app.logger.error(f"Lỗi lấy booking: {str(e)}", exc_info=True)
+        return jsonify({"message": "Lấy booking thất bại", "error": str(e)}), 500
