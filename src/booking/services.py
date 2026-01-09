@@ -378,3 +378,13 @@ def update_booking_service():
             "message": "Cập nhật booking thất bại",
             "error": str(e)
         }), 500
+    
+#get all booking admin
+def get_all_booking_admin_service():
+    try:
+        bookings = Bookings.query.order_by(Bookings.created_at.desc()).all()
+        if not bookings:
+            return jsonify({"message":"Không có booking nào trong hệ thống", "data":[]}),200
+        return read_booking_user_schema.dump(bookings), 200
+    except Exception as e:
+        return jsonify({"message": f"Lỗi hệ thống khi lấy danh sách booking: {str(e)}"}), 500  

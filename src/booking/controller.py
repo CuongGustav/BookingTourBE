@@ -1,6 +1,8 @@
 from flask import Blueprint
 from flask_jwt_extended import jwt_required
-from src.booking.services import (create_booking_service, get_bookings_user_service, get_booking_by_id_service, cancel_booking_service, update_booking_service)
+from src.booking.services import (create_booking_service, get_bookings_user_service, get_booking_by_id_service, cancel_booking_service, 
+                                  update_booking_service, get_all_booking_admin_service)
+from src.common.decorators import require_role
 
 booking = Blueprint("booking", __name__)
 
@@ -28,3 +30,9 @@ def cancel_booking(booking_id):
 @jwt_required()
 def update_booking():
     return update_booking_service()
+
+@booking.route("/admin/all", methods=["GET"])
+@jwt_required()
+@require_role("qcadmin")
+def get_all_booking_admin():
+    return get_all_booking_admin_service()
