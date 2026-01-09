@@ -388,3 +388,15 @@ def get_all_booking_admin_service():
         return read_booking_user_schema.dump(bookings), 200
     except Exception as e:
         return jsonify({"message": f"Lỗi hệ thống khi lấy danh sách booking: {str(e)}"}), 500  
+    
+#read booking detail admin
+def read_booking_detail_admin_service(booking_id):
+    try:
+        if not booking_id:
+            return jsonify({"message":"Không có booking_id"}),400
+        booking = Bookings.query.filter_by(booking_id= booking_id).first()
+        if not booking:
+            return jsonify({"message":"Không có booking nào trong hệ thống", "data":[]}),200
+        return read_one_booking_user_schema.dump(booking),200
+    except Exception as e:
+        return jsonify({"message": f"Lỗi hệ thống khi lấy danh sách booking: {str(e)}"}), 500  
