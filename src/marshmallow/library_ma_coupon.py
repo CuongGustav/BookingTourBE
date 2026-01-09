@@ -57,3 +57,4 @@ class ReadCouponSchema(ma.SQLAlchemySchema):
     valid_to = ma.auto_field()
 
 readCoupons_schema = ReadCouponSchema(many=True)
+readCoupon_schema = ReadCouponSchema()

@@ -6,8 +6,8 @@ from src.extension import db
 from sqlalchemy.orm import joinedload
 from src.model.model_booking import Bookings, BookingStatusEnum
 from src.model.model_tour import Tours
-from src.model.model_coupon import Coupons
-from src.booking_passengers.services import create_booking_passenger_service
+from src.model.model_coupon import Coupons, DiscountTypeEnum
+from src.booking_passengers.services import create_booking_passenger_service, update_booking_passengers_service
 from src.model.model_tour_schedule import Tour_Schedules
 from src.marshmallow.library_ma_booking import read_booking_user_schema, read_one_booking_user_schema
 
@@ -244,3 +244,137 @@ def cancel_booking_service(booking_id):
         db.session.rollback()
         current_app.logger.error(f"Lỗi hủy booking: {str(e)}", exc_info=True)
         return jsonify({"message": "Hủy đơn đặt tour thất bại", "error": str(e)}), 500
+    
+#update booking
+def update_booking_service():
+    data = request.get_json()
+    try:
+        account_id = get_jwt_identity()
+        if not account_id:
+            return jsonify({"message": "Không tìm thấy account_id từ token"}), 401
+
+        booking_id = data.get("booking_id")
+        if not booking_id:
+            return jsonify({"message": "Thiếu booking_id trong request"}), 400
+
+        booking = Bookings.query.filter_by(
+            booking_id=booking_id, 
+            account_id=account_id
+        ).first()
+
+        if not booking:
+            return jsonify({"message": "Booking không tồn tại hoặc không thuộc về bạn"}), 404
+
+        if str(booking.status.value).lower() != str(BookingStatusEnum.PENDING.value).lower():
+            return jsonify({"message": "Chỉ có thể cập nhật booking ở trạng thái PENDING"}), 400
+
+        schedule_id = data.get("schedule_id", booking.schedule_id)
+        schedule = Tour_Schedules.query.get(schedule_id)
+        if not schedule:
+            return jsonify({"message": "Lịch trình không tồn tại"}), 404
+
+        tour_id = data.get("tour_id", booking.tour_id)
+        tour = Tours.query.get(tour_id)
+        if not tour:
+            return jsonify({"message": "Tour không tồn tại"}), 404
+
+        num_adults = data.get("num_adults", booking.num_adults)
+        num_children = data.get("num_children", booking.num_children)
+        num_infants = data.get("num_infants", booking.num_infants)
+
+        # Passengers
+        passengers_data = data.get("passengers", [])
+        if passengers_data:
+            actual_adults = sum(1 for p in passengers_data if p["passenger_type"].lower() == "adult")
+            actual_children = sum(1 for p in passengers_data if p["passenger_type"].lower() == "child")
+            actual_infants = sum(1 for p in passengers_data if p["passenger_type"].lower() == "infant")
+            
+            if (actual_adults != num_adults or
+                actual_children != num_children or
+                actual_infants != num_infants):
+                return jsonify({"message": "Số lượng hành khách không khớp với danh sách cung cấp"}), 400
+
+            valid_genders = {"MALE", "FEMALE", "OTHER"}
+            for p in passengers_data:
+                if not p.get("full_name"):
+                    return jsonify({"message": "Họ tên hành khách bắt buộc"}), 400
+                if not p.get("date_of_birth"):
+                    return jsonify({"message": "Ngày sinh hành khách bắt buộc"}), 400
+                try:
+                    datetime.fromisoformat(p["date_of_birth"].replace('Z', '+00:00'))
+                except ValueError:
+                    return jsonify({"message": "Định dạng ngày sinh không hợp lệ"}), 400
+                if p.get("gender") not in valid_genders:
+                    return jsonify({"message": "Giới tính không hợp lệ"}), 400
+
+            update_result = update_booking_passengers_service(booking_id, passengers_data, num_adults, num_children, num_infants)
+            
+            if not isinstance(update_result, int):
+                return update_result
+            
+            num_single_rooms = update_result 
+        else:
+            num_single_rooms = sum(1 for p in booking.passengers if p.single_room)
+
+        total_price = (
+            num_adults * schedule.price_adult + 
+            num_children * schedule.price_child + 
+            num_infants * schedule.price_infant + 
+            num_single_rooms * tour.single_room_surcharge 
+        )
+
+        discount_amount = 0 
+        coupon_id = data.get("coupon_id", booking.coupon_id)
+        if coupon_id:
+            coupon = Coupons.query.get(coupon_id)
+            if coupon:
+                now = datetime.now()
+                if coupon.valid_from > now or coupon.valid_to < now:
+                    return jsonify({"message": "Coupon đã hết hạn"}), 400
+                if coupon.usage_limit and coupon.used_count >= coupon.usage_limit:
+                    return jsonify({"message": "Coupon đã hết lượt sử dụng"}), 400
+                if total_price < coupon.min_order_amount:
+                    return jsonify({"message": f"Đơn hàng tối thiểu {coupon.min_order_amount}đ để dùng coupon này"}), 400
+
+
+                if coupon.discount_type == DiscountTypeEnum.PERCENTAGE:
+                    discount_amount = total_price * (coupon.discount_value / 100)
+                elif coupon.discount_type == DiscountTypeEnum.FIXED:
+                    discount_amount = coupon.discount_value
+                
+                if coupon.max_discount_amount and discount_amount > coupon.max_discount_amount:
+                    discount_amount = coupon.max_discount_amount
+
+        final_price = max(0, total_price - discount_amount)
+
+        booking.tour_id = tour_id
+        booking.schedule_id = schedule_id
+        booking.coupon_id = coupon_id
+        booking.num_adults = num_adults
+        booking.num_children = num_children
+        booking.num_infants = num_infants
+        booking.total_price = total_price
+        booking.discount_amount = discount_amount
+        booking.final_price = final_price
+        booking.contact_name = data.get("contact_name", booking.contact_name)
+        booking.contact_email = data.get("contact_email", booking.contact_email)
+        booking.contact_phone = data.get("contact_phone", booking.contact_phone)
+        booking.contact_address = data.get("contact_address", booking.contact_address)
+        booking.special_request = data.get("special_request", booking.special_request)
+        booking.updated_at = datetime.now() 
+
+        db.session.commit()
+
+        return jsonify({
+            "message": "Cập nhật booking thành công",
+            "booking_id": booking.booking_id,
+            "booking_code": booking.booking_code
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Lỗi cập nhật booking: {str(e)}", exc_info=True)
+        return jsonify({
+            "message": "Cập nhật booking thất bại",
+            "error": str(e)
+        }), 500

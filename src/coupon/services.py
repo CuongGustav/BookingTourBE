@@ -6,7 +6,7 @@ import cloudinary
 from flask_jwt_extended import get_jwt_identity
 from src.model.model_coupon import Coupons
 from src.extension import db
-from src.marshmallow.library_ma_coupon import (coupon_schema, coupons_schema, readCouponImages_schema, readCoupons_schema)
+from src.marshmallow.library_ma_coupon import (coupon_schema, coupons_schema, readCouponImages_schema, readCoupons_schema, readCoupon_schema)
 
 #add favorite
 def add_coupon_admin_service():
@@ -281,3 +281,38 @@ def read_all_coupon_service():
         return jsonify({"data": data}), 200
     except Exception as e:
         return jsonify({"message": f"Lỗi hệ thống khi lấy danh sách mã giảm giá: {str(e)}"}), 500
+    
+#read coupon by id (public)
+def read_coupon_by_id_service(coupon_id):
+    try:
+        if not coupon_id:
+            return jsonify({"message": "Thiếu thông tin coupon_id"}), 400
+        
+        coupon = Coupons.query.filter_by(
+            coupon_id=coupon_id,
+            is_active=True
+        ).first()
+        
+        if not coupon:
+            return jsonify({"message": "Không tìm thấy mã giảm giá hoặc mã đã hết hiệu lực"}), 404
+        
+        now = datetime.datetime.now()
+        if coupon.valid_from > now:
+            return jsonify({"message": "Mã giảm giá chưa có hiệu lực"}), 400
+        
+        if coupon.valid_to < now:
+            return jsonify({"message": "Mã giảm giá đã hết hạn"}), 400     
+        
+        coupon_data = readCoupon_schema.dump(coupon)
+        
+        return jsonify({
+            "message": "Lấy thông tin mã giảm giá thành công",
+            "data": coupon_data
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Lỗi get coupon by id: {str(e)}", exc_info=True)
+        return jsonify({
+            "message": "Lỗi hệ thống, vui lòng thử lại sau",
+            "error": str(e)
+        }), 500
