@@ -400,3 +400,40 @@ def read_booking_detail_admin_service(booking_id):
         return read_one_booking_user_schema.dump(booking),200
     except Exception as e:
         return jsonify({"message": f"Lỗi hệ thống khi lấy danh sách booking: {str(e)}"}), 500  
+    
+#cancel booking pending admin
+def cancel_booking_pending_admin_service(booking_id):
+    try:
+        data = request.get_json() or {} 
+        reason = data.get("cancellation_reason", "Người dùng tự yêu cầu hủy")
+        
+        if not booking_id:
+            return jsonify({"message":"Không có booking_id"}),400
+        
+        booking = Bookings.query.filter_by(booking_id=booking_id).first()
+        if not booking:
+            return jsonify({"message": "Booking không tồn tại"}), 404
+        
+        if booking.status == BookingStatusEnum.CANCELLED.value:
+            return jsonify({"message": "Đơn hàng này đã được hủy trước đó"}), 400
+        
+        if booking.status == BookingStatusEnum.COMPLETED.value:
+            return jsonify({"message": "Không thể hủy đơn hàng đã hoàn thành"}), 400
+        
+        booking.status = BookingStatusEnum.CANCELLED.value
+        booking.cancelled_at = datetime.now()
+        booking.cancellation_reason = reason 
+        
+        db.session.commit()
+
+        return jsonify({
+            "message": "Hủy đơn đặt tour thành công",
+            "booking_id": booking_id
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Lỗi hủy booking: {str(e)}", exc_info=True)
+        return jsonify({"message": "Hủy đơn đặt tour thất bại", "error": str(e)}), 500
+        
+

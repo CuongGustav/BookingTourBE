@@ -10,6 +10,7 @@ class BookingStatusEnum(PyEnum):
     CONFIRMED = "confirmed"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
+    CANCEL_PENDING = "cancel_pending"
 
 
 class Bookings(db.Model):
