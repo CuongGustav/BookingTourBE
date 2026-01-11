@@ -7,6 +7,7 @@ from src.extension import db
 
 class BookingStatusEnum(PyEnum):
     PENDING = "pending"
+    PAID = "paid"
     CONFIRMED = "confirmed"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
