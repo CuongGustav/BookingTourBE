@@ -9,6 +9,7 @@ import qrcode
 import io
 import base64
 import crc16
+from src.marshmallow.library_ma_payment import payments_schema
 
 #create payment service
 def create_payment_service():
@@ -45,7 +46,6 @@ def create_payment_service():
             payment_method=payment_method,
             amount=amount,
             status=PaymentStatusEnum.PENDING.value,
-            payment_date=datetime.utcnow()
         )
         db.session.add(new_payment)
         db.session.flush()  
@@ -159,8 +159,8 @@ def generate_qr_code_service(booking_id):
         if not booking:
             return jsonify({"message": "Không tìm thấy booking"}), 404
 
-        if booking.account_id != account_id:
-            return jsonify({"message": "Sai tài khoản"}), 403
+        # if booking.account_id != account_id:
+        #     return jsonify({"message": "Sai tài khoản"}), 403
 
         # Thông tin ngân hàng
         bank_bin = "970422"  # MB Bank BIN code
@@ -208,3 +208,90 @@ def generate_qr_code_service(booking_id):
     except Exception as e:
         current_app.logger.error(f"Lỗi khi tạo QR code: {str(e)}")
         return jsonify({"message": "Lỗi khi tạo QR code", "error": str(e)}), 500
+    
+#get all payment admin
+def get_all_payment_admin_service():
+    try:
+        payments = Payments.query.order_by(Payments.created_at.desc()).all()
+        if not payments:
+            return jsonify({"message":"Không có thanh toán nào trong hệ thống", "data":[]}),200
+        return payments_schema.dump(payments),200
+    except Exception as e:
+        return jsonify({"message": f"Lỗi hệ thống khi lấy danh sách thanh toán: {str(e)}"}), 500
+    
+#create payment admin
+def create_payment_admin_service():
+    try:
+        data = request.form
+        booking_id = data.get("booking_id")
+        payment_method = data.get("payment_method")
+        amount = data.get("amount")
+
+        if not all([booking_id, payment_method, amount]):
+            return jsonify({"message": "Thiếu thông tin: booking_id, payment_method, amount"}), 400
+
+        try:
+            amount = float(amount)
+        except ValueError:
+            return jsonify({"message": "Số tiền không hợp lệ"}), 400
+
+        if payment_method not in [e.value for e in PaymentMethodEnum]:
+            return jsonify({"message": "Phương thức thanh toán không hợp lệ"}), 400
+
+        booking = Bookings.query.get(booking_id)
+        if not booking:
+            return jsonify({"message": "Không tìm thấy booking"}), 404
+
+        new_payment = Payments(
+            booking_id=booking_id,
+            payment_method=payment_method,
+            amount=amount,
+            status=PaymentStatusEnum.COMPLETED.value,
+        )
+        db.session.add(new_payment)
+        db.session.flush()
+
+        files = request.files.getlist("images")
+        uploaded_images = []
+        
+        if files and len(files) > 0 and files[0].filename != '':
+            try:
+                uploaded_images = create_payment_image(new_payment.payment_id, files)
+            except Exception as e:
+                db.session.rollback()
+                current_app.logger.error(f"Upload ảnh thất bại: {str(e)}")
+                return jsonify({
+                    "message": "Upload ảnh thất bại",
+                    "error": str(e)
+                }), 400
+
+        booking.status = BookingStatusEnum.CONFIRMED.value
+        
+        from src.model.model_tour_schedule import Tour_Schedules
+        schedule = Tour_Schedules.query.get(booking.schedule_id)
+        if schedule:
+            total_passengers = booking.num_adults + booking.num_children + booking.num_infants
+            schedule.booked_seats += total_passengers
+            
+            if schedule.booked_seats >= schedule.available_seats:
+                from src.model.model_tour_schedule import ScheduleStatusEnum
+                schedule.status = ScheduleStatusEnum.FULL.value
+        
+        db.session.commit()
+
+        response_data = {
+            "message": "Tạo thanh toán thành công",
+            "payment_id": new_payment.payment_id,
+            "booking_code": booking.booking_code
+        }
+        
+        if uploaded_images:
+            response_data["uploaded_images"] = uploaded_images
+            response_data["total_images"] = len(uploaded_images)
+
+        return jsonify(response_data), 201
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Lỗi khi tạo thanh toán (admin): {str(e)}")
+        return jsonify({"message": "Lỗi khi tạo thanh toán", "error": str(e)}), 500

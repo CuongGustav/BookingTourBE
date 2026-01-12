@@ -1,6 +1,7 @@
 from flask import Blueprint
 from flask_jwt_extended import jwt_required
-from src.payment.services import create_payment_service, generate_qr_code_service
+from src.common.decorators import require_role
+from src.payment.services import (create_payment_service, generate_qr_code_service, get_all_payment_admin_service, create_payment_admin_service)
 
 payment = Blueprint("payment", __name__)
 
@@ -13,3 +14,15 @@ def create_payment():
 @jwt_required()
 def generate_qr(booking_id):
     return generate_qr_code_service(booking_id)
+
+@payment.route("/admin/all", methods=["GET"])
+@jwt_required()
+@require_role("qcadmin")  
+def get_all_payment_admin():
+    return get_all_payment_admin_service()
+
+@payment.route("/admin/create", methods=["POST"])
+@jwt_required()
+@require_role("qcadmin")
+def create_payment_admin():
+    return create_payment_admin_service()

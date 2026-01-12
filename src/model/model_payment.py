@@ -32,7 +32,6 @@ class Payments(db.Model):
         default=PaymentStatusEnum.PENDING.value,
         nullable=False
     )
-    payment_date = Column(TIMESTAMP)
     created_at = Column(TIMESTAMP, server_default=func.now(), nullable=False)
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now(), nullable=False)
 
