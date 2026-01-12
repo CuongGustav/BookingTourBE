@@ -5,8 +5,12 @@ from src.model.model_payment import Payments, PaymentMethodEnum, PaymentStatusEn
 from src.model.model_booking import Bookings, BookingStatusEnum
 from datetime import datetime
 from src.payment_images.services import create_payment_image
+import qrcode
+import io
+import base64
+import crc16
 
-
+#create payment service
 def create_payment_service():
     try:
         account_id = get_jwt_identity()
@@ -26,16 +30,13 @@ def create_payment_service():
         if payment_method not in [e.value for e in PaymentMethodEnum]:
             return jsonify({"message": "Phương thức thanh toán không hợp lệ"}), 400
 
-        # Check booking exists
         booking = Bookings.query.get(booking_id)
         if not booking:
             return jsonify({"message": "Không tìm thấy booking"}), 404
 
-        # Check authorization
         if booking.account_id != account_id:
             return jsonify({"message": "Sai tài khoản"}), 403
 
-        # Check booking status
         if booking.status != BookingStatusEnum.PENDING:
             return jsonify({"message": "Booking không phải ở trạng thái đang xử lý"}), 400
 
@@ -63,10 +64,8 @@ def create_payment_service():
                     "error": str(e)
                 }), 400
 
-        # Update booking status to paid
         booking.status = BookingStatusEnum.PAID.value
         
-        # Commit all changes
         db.session.commit()
 
         response_data = {
@@ -84,3 +83,128 @@ def create_payment_service():
         db.session.rollback()
         current_app.logger.error(f"Lỗi khi tạo thanh toán: {str(e)}")
         return jsonify({"message": "Lỗi khi tạo thanh toán", "error": str(e)}), 500
+
+# Tính mã CRC để xác thực tính toàn vẹn của dữ liệu QR, kiểm tra xem QR có hợp lệ không
+def calculate_crc(data):
+    crc = 0xFFFF #Giá trị ban đầu theo chuẩn CCITT-FALSE
+    for byte in data.encode('utf-8'):
+        crc ^= byte << 8
+        for _ in range(8):
+            if crc & 0x8000:
+                crc = (crc << 1) ^ 0x1021
+            else:
+                crc <<= 1
+            crc &= 0xFFFF
+    return format(crc, '04X')
+
+#Tạo ra chuỗi dữ liệu QR thanh toán theo chuẩn VietQR
+def build_vietqr_string(bank_bin, account_no, amount, description):
+ 
+    def build_field(field_id, value):
+        """Helper function để build từng field theo format: ID + Length + Value"""
+        length = len(str(value))
+        return f"{field_id:02d}{length:02d}{value}"
+    
+    qr_string = build_field(0, "01") # định dạng bắt buộc là 01
+    
+    # Point of Initiation Method (12 = QR tĩnh có thể dùng nhiều lần)
+    qr_string += build_field(1, "12")
+    
+    # Merchant Account Information - VietQR
+    # Field 38 cho VietQR
+    vietqr_data = ""
+    vietqr_data += build_field(0, "A000000727")  # GUID cho VietQR
+    
+    # khởi tạo thông tin người nhận tiền
+    beneficiary = ""
+    beneficiary += build_field(0, bank_bin)  # Bank BIN
+    beneficiary += build_field(1, account_no)  # Account number
+    
+    vietqr_data += build_field(1, beneficiary)
+    
+    # Service code (field 2) - QRIBFTTA cho chuyển khoản
+    vietqr_data += build_field(2, "QRIBFTTA")
+    
+    qr_string += build_field(38, vietqr_data)
+    
+    # Transaction Currency (704 = VND)
+    qr_string += build_field(53, "704")
+    
+    # Transaction Amount
+    if amount and amount > 0:
+        qr_string += build_field(54, str(int(amount)))
+    
+    # Country Code
+    qr_string += build_field(58, "VN")
+    
+    # Additional Data Field
+    if description:
+        additional_data = build_field(8, description)  # Purpose of transaction
+        qr_string += build_field(62, additional_data)
+    
+    # CRC - phải tính sau khi đã có toàn bộ chuỗi
+    qr_string += "6304"  # Field 63 (CRC) với length = 04
+    crc = calculate_crc(qr_string)
+    qr_string += crc
+    
+    return qr_string
+
+
+# Generate QR Code service
+def generate_qr_code_service(booking_id):
+    try:
+        account_id = get_jwt_identity()
+        
+        booking = Bookings.query.get(booking_id)
+        if not booking:
+            return jsonify({"message": "Không tìm thấy booking"}), 404
+
+        if booking.account_id != account_id:
+            return jsonify({"message": "Sai tài khoản"}), 403
+
+        # Thông tin ngân hàng
+        bank_bin = "970422"  # MB Bank BIN code
+        account_no = "88868668688668"
+        account_name = "NGUYEN QUOC CUONG"
+        amount = int(booking.final_price)
+        description = booking.booking_code
+        
+        # Tạo chuỗi QR theo chuẩn VietQR (EMVCo)
+        qr_content = build_vietqr_string(bank_bin, account_no, amount, description)
+        
+        # Generate QR code
+        qr = qrcode.QRCode(
+            version=None,  # Auto size
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(qr_content)
+        qr.make(fit=True)
+
+        # Create image
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Convert to base64
+        buffer = io.BytesIO()
+        img.save(buffer, format='PNG')
+        buffer.seek(0)
+        img_base64 = base64.b64encode(buffer.getvalue()).decode()
+        
+        return jsonify({
+            "message": "Tạo mã QR thành công",
+            "qr_code": f"data:image/png;base64,{img_base64}",
+            "qr_content": qr_content,  
+            "bank_info": {
+                "bank_name": "MB - Ngân hàng TMCP Quân Đội",
+                "bank_bin": bank_bin,
+                "account_no": account_no,
+                "account_name": account_name,
+                "amount": amount,
+                "description": description
+            }
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Lỗi khi tạo QR code: {str(e)}")
+        return jsonify({"message": "Lỗi khi tạo QR code", "error": str(e)}), 500
