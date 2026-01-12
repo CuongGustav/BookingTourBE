@@ -414,10 +414,10 @@ def cancel_booking_pending_admin_service(booking_id):
         if not booking:
             return jsonify({"message": "Booking không tồn tại"}), 404
         
-        if booking.status == BookingStatusEnum.CANCELLED.value:
+        if booking.status == BookingStatusEnum.CANCELLED:
             return jsonify({"message": "Đơn hàng này đã được hủy trước đó"}), 400
         
-        if booking.status == BookingStatusEnum.COMPLETED.value:
+        if booking.status == BookingStatusEnum.COMPLETED:
             return jsonify({"message": "Không thể hủy đơn hàng đã hoàn thành"}), 400
         
         booking.status = BookingStatusEnum.CANCELLED.value
@@ -436,4 +436,50 @@ def cancel_booking_pending_admin_service(booking_id):
         current_app.logger.error(f"Lỗi hủy booking: {str(e)}", exc_info=True)
         return jsonify({"message": "Hủy đơn đặt tour thất bại", "error": str(e)}), 500
         
+#cancel booking paid admin
+def cancel_booking_paid_admin_service(booking_id):
+    try:
+        data = request.get_json() or {} 
+        reason = data.get("cancellation_reason", "Admin hủy đơn hàng đã thanh toán")
+        
+        if not booking_id:
+            return jsonify({"message":"Không có booking_id"}), 400
+        
+        booking = Bookings.query.filter_by(booking_id=booking_id).first()
+        if not booking:
+            return jsonify({"message": "Booking không tồn tại"}), 404
+        
+        if booking.status == BookingStatusEnum.CANCELLED:
+            return jsonify({"message": "Đơn hàng này đã được hủy trước đó"}), 400
+        
+        if booking.status == BookingStatusEnum.COMPLETED:
+            return jsonify({"message": "Không thể hủy đơn hàng đã hoàn thành"}), 400
+        
+        if booking.status != BookingStatusEnum.PAID:
+            return jsonify({"message": "Chỉ có thể hủy booking ở trạng thái PAID"}), 400
+        
+        # Tìm payment tương ứng với booking
+        from src.model.model_payment import Payments, PaymentStatusEnum
+        payment = Payments.query.filter_by(booking_id=booking_id).first()
+        
+        if not payment:
+            return jsonify({"message": "Không tìm thấy thanh toán cho booking này"}), 404
+        
+        booking.status = BookingStatusEnum.CANCELLED
+        booking.cancelled_at = datetime.now()
+        booking.cancellation_reason = reason
+        
+        payment.status = PaymentStatusEnum.FAILED
+    
+        db.session.commit()
 
+        return jsonify({
+            "message": "Hủy đơn đặt tour đã thanh toán thành công",
+            "booking_id": booking_id,
+            "booking_code": booking.booking_code
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Lỗi hủy booking paid: {str(e)}", exc_info=True)
+        return jsonify({"message": "Hủy đơn đặt tour thất bại", "error": str(e)}), 500

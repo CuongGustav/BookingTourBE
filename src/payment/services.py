@@ -9,7 +9,7 @@ import qrcode
 import io
 import base64
 import crc16
-from src.marshmallow.library_ma_payment import payments_schema
+from src.marshmallow.library_ma_payment import payments_schema, readPaymentDetailAdmin_schema
 
 #create payment service
 def create_payment_service():
@@ -295,3 +295,39 @@ def create_payment_admin_service():
         db.session.rollback()
         current_app.logger.error(f"Lỗi khi tạo thanh toán (admin): {str(e)}")
         return jsonify({"message": "Lỗi khi tạo thanh toán", "error": str(e)}), 500
+    
+#read payment admin by uuid
+def read_payment_detail_admin_service(payment_id):
+    try:
+        payment = Payments.query.get(payment_id)
+        if not payment:
+            return jsonify({"message": "Không tìm thấy thanh toán"}), 404
+        
+        return jsonify(readPaymentDetailAdmin_schema.dump(payment)), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Lỗi khi lấy chi tiết thanh toán: {str(e)}")
+        return jsonify({"message": "Lỗi hệ thống khi lấy chi tiết thanh toán", "error": str(e)}), 500
+    
+#read payment detail admin by booking_id
+def read_payment_detail_admin_by_booking_id_service(booking_id):
+    try:
+        booking = Bookings.query.get(booking_id)
+        if not booking:
+            return jsonify({"message": "Không tìm thấy booking"}), 404
+        
+        if booking.status != BookingStatusEnum.PAID:
+            return jsonify({"message": "Booking chưa được thanh toán"}), 400
+        
+        payment = Payments.query.filter_by(booking_id=booking_id).first()
+        if not payment:
+            return jsonify({"message": "Không tìm thấy thanh toán cho booking này"}), 404
+        
+        return read_payment_detail_admin_service(payment.payment_id)
+        
+    except Exception as e:
+        current_app.logger.error(f"Lỗi khi lấy chi tiết thanh toán theo booking_id: {str(e)}")
+        return jsonify({"message": "Lỗi hệ thống khi lấy chi tiết thanh toán", "error": str(e)}), 500
+
+
+        

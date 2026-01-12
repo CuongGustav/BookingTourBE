@@ -2,7 +2,7 @@ from flask import Blueprint
 from flask_jwt_extended import jwt_required
 from src.booking.services import (create_booking_service, get_bookings_user_service, get_booking_by_id_service, cancel_booking_service, 
                                   update_booking_service, get_all_booking_admin_service, read_booking_detail_admin_service, 
-                                  cancel_booking_pending_admin_service)
+                                  cancel_booking_pending_admin_service, cancel_booking_paid_admin_service)
 from src.common.decorators import require_role
 
 booking = Blueprint("booking", __name__)
@@ -49,3 +49,9 @@ def read_booking_detail_admin(booking_id):
 @require_role("qcadmin")
 def cancel_booking_pending_admin(booking_id):
     return cancel_booking_pending_admin_service(booking_id)
+
+@booking.route("/admin/cancel-booking-paid/<string:booking_id>", methods=["POST"])
+@jwt_required()
+@require_role("qcadmin")
+def cancel_booking_paid_admin(booking_id):
+    return cancel_booking_paid_admin_service(booking_id)
