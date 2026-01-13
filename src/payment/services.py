@@ -303,7 +303,15 @@ def read_payment_detail_admin_service(payment_id):
         if not payment:
             return jsonify({"message": "Không tìm thấy thanh toán"}), 404
         
-        return jsonify(readPaymentDetailAdmin_schema.dump(payment)), 200
+        payment_data = readPaymentDetailAdmin_schema.dump(payment)
+        
+        # Thêm cancellation_reason từ booking
+        if payment.booking:
+            payment_data['cancellation_reason'] = payment.booking.cancellation_reason
+        else:
+            payment_data['cancellation_reason'] = None
+        
+        return jsonify(payment_data), 200
         
     except Exception as e:
         current_app.logger.error(f"Lỗi khi lấy chi tiết thanh toán: {str(e)}")
