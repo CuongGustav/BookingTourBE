@@ -3,7 +3,7 @@ from flask_jwt_extended import jwt_required
 from src.booking.services import (create_booking_service, get_bookings_user_service, get_booking_by_id_service, cancel_booking_service, 
                                   update_booking_service, get_all_booking_admin_service, read_booking_detail_admin_service, 
                                   cancel_booking_pending_admin_service, cancel_booking_paid_admin_service, confirm_booking_paid_admin_service,
-                                  cancel_booking_paid_user_service)
+                                  cancel_booking_paid_user_service, cancel_booking_confirmed_user_service)
 from src.common.decorators import require_role
 
 booking = Blueprint("booking", __name__)
@@ -74,3 +74,9 @@ def confirm_booking_paid_admin(booking_id):
 @jwt_required()
 def cancel_booking_paid_user(booking_id):
     return cancel_booking_paid_user_service(booking_id)
+
+#cancel booking confirm user
+@booking.route("/cancel-booking-confirm/<string:booking_id>", methods=["PATCH"])
+@jwt_required()
+def cancel_booking_confirmed_user(booking_id):
+    return cancel_booking_confirmed_user_service(booking_id)
