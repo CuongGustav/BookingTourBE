@@ -296,6 +296,41 @@ def create_payment_admin_service():
         current_app.logger.error(f"Lỗi khi tạo thanh toán (admin): {str(e)}")
         return jsonify({"message": "Lỗi khi tạo thanh toán", "error": str(e)}), 500
     
+def calculate_refund_amount(booking, payment_amount):
+    try:
+        if not booking.schedule:
+            return None
+        
+        departure_date = booking.schedule.departure_date
+        
+        cancellation_date = booking.cancelled_at if booking.cancelled_at else datetime.now()
+        
+        if isinstance(departure_date, datetime):
+            departure_datetime = departure_date
+        else:
+            departure_datetime = datetime.combine(departure_date, datetime.min.time())
+        
+        days_before_departure = (departure_datetime - cancellation_date).days
+        
+
+        if days_before_departure < 7:
+            refund_percentage = 30
+        else:
+            refund_percentage = 70
+        
+        refund_amount = float(payment_amount) * (refund_percentage / 100)
+        
+        return {
+            "refund_amount": round(refund_amount, 2),
+            "refund_percentage": refund_percentage,
+            "days_before_departure": days_before_departure,
+            "departure_date": departure_datetime.strftime("%Y-%m-%d"),
+            "cancellation_date": cancellation_date.strftime("%Y-%m-%d %H:%M:%S")
+        }
+    except Exception as e:
+        current_app.logger.error(f"Lỗi khi tính toán hoàn tiền: {str(e)}")
+        return None
+
 #read payment admin by uuid
 def read_payment_detail_admin_service(payment_id):
     try:
@@ -305,11 +340,20 @@ def read_payment_detail_admin_service(payment_id):
         
         payment_data = readPaymentDetailAdmin_schema.dump(payment)
         
-        # Thêm cancellation_reason từ booking
         if payment.booking:
             payment_data['cancellation_reason'] = payment.booking.cancellation_reason
+            
+            if payment.booking.status in [BookingStatusEnum.CANCELLED, BookingStatusEnum.CANCEL_PENDING]:
+                refund_info = calculate_refund_amount(payment.booking, payment.amount)
+                if refund_info:
+                    payment_data['refund_info'] = refund_info
+                else:
+                    payment_data['refund_info'] = None
+            else:
+                payment_data['refund_info'] = None
         else:
             payment_data['cancellation_reason'] = None
+            payment_data['refund_info'] = None
         
         return jsonify(payment_data), 200
         

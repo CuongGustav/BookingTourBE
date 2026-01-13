@@ -3,7 +3,8 @@ from flask_jwt_extended import jwt_required
 from src.booking.services import (create_booking_service, get_bookings_user_service, get_booking_by_id_service, cancel_booking_service, 
                                   update_booking_service, get_all_booking_admin_service, read_booking_detail_admin_service, 
                                   cancel_booking_pending_admin_service, cancel_booking_paid_admin_service, confirm_booking_paid_admin_service,
-                                  cancel_booking_confirmed_user_service, cancel_booking_confirm_and_refund_payment_admin_service)
+                                  cancel_booking_confirmed_user_service, cancel_booking_confirm_and_refund_payment_admin_service,
+                                  confirm_booking_cancel_pending_and_refund_payment_admin_service)
 from src.common.decorators import require_role
 
 booking = Blueprint("booking", __name__)
@@ -75,15 +76,16 @@ def confirm_booking_paid_admin(booking_id):
 def cancel_booking_confirmed_user(booking_id):
     return cancel_booking_confirmed_user_service(booking_id)
 
-# #cancel booking confirm admin
-# @booking.route("/admin/cancel-booking-confirm/<string:booking_id>", methods=["PATCH"])
-# @jwt_required()
-# @require_role("qcadmin")
-# def cancel_booking_confirmed_admin(booking_id):
-#     return cancel_booking_confirmed_admin_service(booking_id)
-
+#cancel booking confirm admin
 @booking.route("/admin/cancel-and-refund/<booking_id>", methods=["PATCH"])
 @jwt_required()
 @require_role("qcadmin")
 def cancel_booking_confirm_and_refund_payment_admin(booking_id):
     return cancel_booking_confirm_and_refund_payment_admin_service(booking_id)
+
+#confirm booking cancel pending admin
+@booking.route("/admin/confirm-booking-cancel-pending-and-refund/<booking_id>", methods=["PATCH"])
+@jwt_required()
+@require_role("qcadmin")
+def confirm_booking_cancel_pending_and_refund_payment_admin(booking_id):
+    return confirm_booking_cancel_pending_and_refund_payment_admin_service(booking_id)

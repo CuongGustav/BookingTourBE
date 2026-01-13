@@ -11,6 +11,7 @@ from src.model.model_coupon import Coupons, DiscountTypeEnum
 from src.booking_passengers.services import create_booking_passenger_service, update_booking_passengers_service
 from src.model.model_tour_schedule import Tour_Schedules
 from src.marshmallow.library_ma_booking import read_booking_user_schema, read_one_booking_user_schema
+from src.payment.services import calculate_refund_amount
 from src.payment_images.services import create_payment_image
 
 def generate_booking_code():
@@ -617,6 +618,12 @@ def cancel_booking_confirm_and_refund_payment_admin_service(booking_id):
 
         if not all([cancellation_reason, payment_method, amount]):
             return jsonify({"message": "Thiếu dữ liệu"}), 400
+        try:
+            refund_amount = float(amount)
+            if refund_amount <= 0:
+                return jsonify({"message": "Số tiền hoàn trả phải lớn hơn 0"}), 400
+        except ValueError:
+            return jsonify({"message": "Số tiền không hợp lệ"}), 400
 
         booking = Bookings.query.get(booking_id)
         if not booking:
@@ -625,7 +632,6 @@ def cancel_booking_confirm_and_refund_payment_admin_service(booking_id):
         booking.status = BookingStatusEnum.CANCELLED.value
         booking.cancellation_reason = cancellation_reason
 
-        # 2️⃣ Create refunded payment
         refund_payment = Payments(
             booking_id=booking_id,
             payment_method=payment_method,
@@ -635,9 +641,17 @@ def cancel_booking_confirm_and_refund_payment_admin_service(booking_id):
         db.session.add(refund_payment)
         db.session.flush()
 
-        # 3️⃣ Upload images
         if files and files[0].filename:
             create_payment_image(refund_payment.payment_id, files)
+
+        schedule = Tour_Schedules.query.get(booking.schedule_id)
+        if schedule:
+            total_passengers = booking.num_adults + booking.num_children + booking.num_infants
+            schedule.booked_seats = max(0, schedule.booked_seats - total_passengers)
+            
+            from src.model.model_tour_schedule import ScheduleStatusEnum
+            if schedule.status == ScheduleStatusEnum.FULL.value and schedule.booked_seats < schedule.available_seats:
+                schedule.status = ScheduleStatusEnum.AVAILABLE.value
 
         db.session.commit()
 
@@ -653,3 +667,83 @@ def cancel_booking_confirm_and_refund_payment_admin_service(booking_id):
             "message": "Lỗi khi hủy & hoàn tiền",
             "error": str(e)
         }), 500
+    
+#confirm booking cancel pending and refund payment admin
+def confirm_booking_cancel_pending_and_refund_payment_admin_service(booking_id):
+    try:
+        data = request.form
+        files = request.files.getlist("images")
+
+        cancellation_reason = data.get("cancellation_reason")
+        payment_method = data.get("payment_method")
+        amount = data.get("amount")
+
+        if not all([cancellation_reason, payment_method, amount]):
+            return jsonify({"message": "Thiếu dữ liệu"}), 400
+        
+        try:
+            refund_amount = float(amount)
+            if refund_amount <= 0:
+                return jsonify({"message": "Số tiền hoàn trả phải lớn hơn 0"}), 400
+        except ValueError:
+            return jsonify({"message": "Số tiền không hợp lệ"}), 400
+
+        booking = Bookings.query.get(booking_id)
+        if not booking:
+            return jsonify({"message": "Không tìm thấy booking"}), 404
+        
+        original_payment = Payments.query.filter_by(
+            booking_id=booking_id,
+            status=PaymentStatusEnum.COMPLETED.value
+        ).first()
+        if not original_payment:
+            return jsonify({"message": "Không tìm thấy thanh toán gốc"}), 404
+        refund_info = calculate_refund_amount(booking, original_payment.amount)
+        
+        if not refund_info:
+            return jsonify({"message": "Không thể tính toán số tiền hoàn trả"}), 400
+
+        calculated_refund = refund_info['refund_amount']
+        if abs(refund_amount - calculated_refund) > 1000:
+            return jsonify({"message": f"Số tiền hoàn trả không khớp."}), 400
+
+        booking.status = BookingStatusEnum.CANCELLED.value
+        booking.cancellation_reason = cancellation_reason
+
+        refund_payment = Payments(
+            booking_id=booking_id,
+            payment_method=payment_method,
+            amount=float(amount),
+            status=PaymentStatusEnum.REFUNDED.value,
+        )
+        db.session.add(refund_payment)
+        db.session.flush()
+
+        if files and files[0].filename:
+            create_payment_image(refund_payment.payment_id, files)
+
+        schedule = Tour_Schedules.query.get(booking.schedule_id)
+        if schedule:
+            total_passengers = booking.num_adults + booking.num_children + booking.num_infants
+            schedule.booked_seats = max(0, schedule.booked_seats - total_passengers)
+            
+            # Update schedule status if it was FULL
+            from src.model.model_tour_schedule import ScheduleStatusEnum
+            if schedule.status == ScheduleStatusEnum.FULL.value and schedule.booked_seats < schedule.available_seats:
+                schedule.status = ScheduleStatusEnum.AVAILABLE.value
+
+        db.session.commit()
+
+        return jsonify({
+            "message": "Hủy booking & hoàn tiền thành công",
+            "payment_id": refund_payment.payment_id
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(str(e))
+        return jsonify({
+            "message": "Lỗi khi hủy & hoàn tiền",
+            "error": str(e)
+        }), 500
+
