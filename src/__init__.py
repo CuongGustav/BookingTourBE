@@ -14,6 +14,7 @@ from src.coupon.controller import coupon
 from src.booking.controller import booking
 from src.booking_passengers.controller import booking_passengers
 from src.payment.controller import payment
+from src.update_status_completed_booking import init_scheduler
 
 def create_app(config_file="config.py"):
     app = Flask(__name__)
@@ -38,6 +39,7 @@ def create_app(config_file="config.py"):
 
     with app.app_context():
         db.create_all()
+        init_scheduler(app)
 
     app.register_blueprint(auth, url_prefix="/auth")
     app.register_blueprint(account, url_prefix="/account")  

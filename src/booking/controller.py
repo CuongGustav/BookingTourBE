@@ -1,11 +1,12 @@
-from flask import Blueprint
+from flask import Blueprint, current_app, jsonify
 from flask_jwt_extended import jwt_required
 from src.booking.services import (create_booking_service, get_bookings_user_service, get_booking_by_id_service, cancel_booking_service, 
                                   update_booking_service, get_all_booking_admin_service, read_booking_detail_admin_service, 
                                   cancel_booking_pending_admin_service, cancel_booking_paid_admin_service, confirm_booking_paid_admin_service,
                                   cancel_booking_confirmed_user_service, cancel_booking_confirm_and_refund_payment_admin_service,
-                                  confirm_booking_cancel_pending_and_refund_payment_admin_service)
+                                  confirm_booking_cancel_pending_and_refund_payment_admin_service, cancel_booking_cancel_pending_admin_service)
 from src.common.decorators import require_role
+from src.update_status_completed_booking import update_completed_bookings
 
 booking = Blueprint("booking", __name__)
 
@@ -89,3 +90,18 @@ def cancel_booking_confirm_and_refund_payment_admin(booking_id):
 @require_role("qcadmin")
 def confirm_booking_cancel_pending_and_refund_payment_admin(booking_id):
     return confirm_booking_cancel_pending_and_refund_payment_admin_service(booking_id)
+
+#cancel booking cancel pending
+@booking.route("/admin/cancel-booking-cancel-pending/<booking_id>", methods=["PATCH"])
+@jwt_required()
+@require_role("qcadmin")
+def cancel_booking_cancel_pending_admin(booking_id):
+    return cancel_booking_cancel_pending_admin_service(booking_id)
+
+#update status completed booking
+@booking.route("/admin/test-complete-bookings", methods=["POST"])
+@jwt_required()
+@require_role("qcadmin")
+def test_complete_bookings():
+    update_completed_bookings(current_app._get_current_object())
+    return jsonify({"message": "Đã chạy job cập nhật booking"}), 200

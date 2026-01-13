@@ -747,3 +747,32 @@ def confirm_booking_cancel_pending_and_refund_payment_admin_service(booking_id):
             "error": str(e)
         }), 500
 
+#cancel booking cancel pending admin
+def cancel_booking_cancel_pending_admin_service(booking_id):
+    try:
+        if not booking_id:
+            return jsonify({"message": "Không có booking_id"}), 400
+        
+        booking = Bookings.query.filter_by(booking_id=booking_id).first()
+        if not booking:
+            return jsonify({"message": "Booking không tồn tại"}), 404
+        
+        if booking.status != BookingStatusEnum.CANCEL_PENDING:
+            return jsonify({"message": "Chỉ có thể từ chối yêu cầu hủy với booking ở trạng thái CANCEL_PENDING"}), 400
+        
+        booking.status = BookingStatusEnum.CONFIRMED.value
+        booking.cancellation_reason = None
+        booking.cancelled_at = None
+        
+        db.session.commit()
+
+        return jsonify({
+            "message": "Đã từ chối yêu cầu hủy booking.",
+            "booking_id": booking_id,
+            "booking_code": booking.booking_code
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Lỗi từ chối hủy booking: {str(e)}", exc_info=True)
+        return jsonify({"message": "Từ chối hủy booking thất bại", "error": str(e)}), 500
