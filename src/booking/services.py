@@ -5,11 +5,13 @@ from flask_jwt_extended import get_jwt_identity
 from src.extension import db
 from sqlalchemy.orm import joinedload
 from src.model.model_booking import Bookings, BookingStatusEnum
+from src.model.model_payment import PaymentStatusEnum, Payments
 from src.model.model_tour import Tours
 from src.model.model_coupon import Coupons, DiscountTypeEnum
 from src.booking_passengers.services import create_booking_passenger_service, update_booking_passengers_service
 from src.model.model_tour_schedule import Tour_Schedules
 from src.marshmallow.library_ma_booking import read_booking_user_schema, read_one_booking_user_schema
+from src.payment_images.services import create_payment_image
 
 def generate_booking_code():
     current_date = datetime.now().strftime("%Y%m%d")
@@ -542,66 +544,7 @@ def confirm_booking_paid_admin_service(booking_id):
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Lỗi xác nhận booking: {str(e)}", exc_info=True)
-        return jsonify({"message": "Xác nhận booking thất bại", "error": str(e)}), 500
-    
-#cancel booking paid user
-def cancel_booking_paid_user_service(booking_id):
-    try:
-        account_id = get_jwt_identity()
-        if not account_id:
-            return jsonify({"message": "Không tìm thấy account_id từ token"}), 401
-
-        data = request.get_json() or {}
-        reason = data.get("cancellation_reason", "").strip()
-
-        if not reason:
-            return jsonify({"message": "Vui lòng nhập lý do hủy (bắt buộc phải có thông tin tài khoản để hoàn tiền)"}), 400
-
-        if not booking_id:
-            return jsonify({"message": "Không có booking_id"}), 400
-
-        booking = Bookings.query.filter_by(
-            booking_id=booking_id,
-            account_id=account_id
-        ).first()
-
-        if not booking:
-            return jsonify({"message": "Booking không tồn tại hoặc không thuộc về bạn"}), 404
-
-        if booking.status == BookingStatusEnum.CANCELLED:
-            return jsonify({"message": "Đơn hàng này đã được hủy trước đó"}), 400
-        if booking.status == BookingStatusEnum.CANCEL_PENDING:
-            return jsonify({"message": "Đơn hàng đang chờ xử lý hủy"}), 400
-        if booking.status == BookingStatusEnum.COMPLETED:
-            return jsonify({"message": "Không thể hủy đơn hàng đã hoàn thành"}), 400
-        if booking.status == BookingStatusEnum.CONFIRMED:
-            return jsonify({"message": "Đơn hàng đã được xác nhận, không thể tự hủy. Vui lòng liên hệ admin"}), 400
-
-        if booking.status != BookingStatusEnum.PAID:
-            return jsonify({"message": "Chỉ có thể hủy booking đã thanh toán và chưa xác nhận"}), 400
-
-        from src.model.model_payment import Payments
-        payment = Payments.query.filter_by(booking_id=booking_id).first()
-
-        if not payment:
-            return jsonify({"message": "Không tìm thấy thanh toán cho booking này"}), 404
-
-        booking.status = BookingStatusEnum.CANCEL_PENDING.value
-        booking.cancellation_reason = reason
-        booking.cancelled_at = datetime.now()
-
-        db.session.commit()
-
-        return jsonify({
-            "message": "Yêu cầu hủy đơn đặt tour đã được gửi. Admin sẽ xử lý hoàn tiền trong thời gian sớm nhất",
-            "booking_id": booking_id,
-            "booking_code": booking.booking_code,
-        }), 200
-
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f"Lỗi hủy booking paid user: {str(e)}", exc_info=True)
-        return jsonify({"message": "Hủy đơn đặt tour thất bại", "error": str(e)}), 500
+        return jsonify({"message": "Xác nhận booking thất bại", "error": str(e)}), 500  
     
 #cancel booking confirm user
 def cancel_booking_confirmed_user_service(booking_id):
@@ -661,3 +604,52 @@ def cancel_booking_confirmed_user_service(booking_id):
         db.session.rollback()
         current_app.logger.error(f"Lỗi hủy booking confirmed user: {str(e)}", exc_info=True)
         return jsonify({"message": "Hủy đơn đặt tour thất bại", "error": str(e)}), 500
+    
+#cancel booking and refunded payment confirmed admin
+def cancel_booking_confirm_and_refund_payment_admin_service(booking_id):
+    try:
+        data = request.form
+        files = request.files.getlist("images")
+
+        cancellation_reason = data.get("cancellation_reason")
+        payment_method = data.get("payment_method")
+        amount = data.get("amount")
+
+        if not all([cancellation_reason, payment_method, amount]):
+            return jsonify({"message": "Thiếu dữ liệu"}), 400
+
+        booking = Bookings.query.get(booking_id)
+        if not booking:
+            return jsonify({"message": "Không tìm thấy booking"}), 404
+
+        booking.status = BookingStatusEnum.CANCELLED.value
+        booking.cancellation_reason = cancellation_reason
+
+        # 2️⃣ Create refunded payment
+        refund_payment = Payments(
+            booking_id=booking_id,
+            payment_method=payment_method,
+            amount=float(amount),
+            status=PaymentStatusEnum.REFUNDED.value,
+        )
+        db.session.add(refund_payment)
+        db.session.flush()
+
+        # 3️⃣ Upload images
+        if files and files[0].filename:
+            create_payment_image(refund_payment.payment_id, files)
+
+        db.session.commit()
+
+        return jsonify({
+            "message": "Hủy booking & hoàn tiền thành công",
+            "payment_id": refund_payment.payment_id
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(str(e))
+        return jsonify({
+            "message": "Lỗi khi hủy & hoàn tiền",
+            "error": str(e)
+        }), 500

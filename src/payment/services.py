@@ -324,9 +324,6 @@ def read_payment_detail_admin_by_booking_id_service(booking_id):
         if not booking:
             return jsonify({"message": "Không tìm thấy booking"}), 404
         
-        if booking.status != BookingStatusEnum.PAID:
-            return jsonify({"message": "Booking chưa được thanh toán"}), 400
-        
         payment = Payments.query.filter_by(booking_id=booking_id).first()
         if not payment:
             return jsonify({"message": "Không tìm thấy thanh toán cho booking này"}), 404
