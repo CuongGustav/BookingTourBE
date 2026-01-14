@@ -6,6 +6,7 @@ from src.extension import db
 from sqlalchemy.orm import joinedload
 from src.model.model_booking import Bookings, BookingStatusEnum
 from src.model.model_payment import PaymentStatusEnum, Payments
+from src.model.model_review import Reviews
 from src.model.model_tour import Tours
 from src.model.model_coupon import Coupons, DiscountTypeEnum
 from src.booking_passengers.services import create_booking_passenger_service, update_booking_passengers_service
@@ -173,7 +174,10 @@ def get_bookings_user_service():
             return jsonify({"message": "Không tìm thấy account_id từ token"}), 401
         
         status = request.args.get("status")
-        query = Bookings.query.options(joinedload(Bookings.tour)).filter_by(account_id=account_id)
+        query = Bookings.query.options(
+            joinedload(Bookings.tour),
+            joinedload(Bookings.reviews)
+        ).filter_by(account_id=account_id)
 
         if status:
             status_upper = status.upper()
@@ -183,14 +187,19 @@ def get_bookings_user_service():
                 return jsonify({"message": "Trạng thái không hợp lệ"}), 400
 
         bookings = query.order_by(Bookings.created_at.desc()).all()
+        
         bookings_data = read_booking_user_schema.dump(bookings)
+        
+        for i, booking in enumerate(bookings):
+            has_reviewed = len(booking.reviews) > 0 if booking.reviews else False
+            bookings_data[i]['is_review'] = has_reviewed
 
         return jsonify({"bookings": bookings_data}), 200
     except Exception as e:
         current_app.logger.error(f"Lỗi lấy bookings: {str(e)}", exc_info=True)
         return jsonify({"message": "Lấy bookings thất bại", "error": str(e)}), 500
     
-#get all booking by booking id
+#get booking by booking id
 def get_booking_by_id_service(booking_id):
     try:
         account_id = get_jwt_identity()
@@ -206,6 +215,9 @@ def get_booking_by_id_service(booking_id):
             return jsonify({"message": "Booking không tồn tại hoặc không thuộc về bạn"}), 404
 
         booking_data = read_one_booking_user_schema.dump(booking)
+
+        has_reviewed = Reviews.query.filter_by(booking_id=booking_id, account_id=account_id).first() is not None
+        booking_data['is_review'] = has_reviewed
 
         return jsonify({"booking": booking_data}), 200
     except Exception as e:

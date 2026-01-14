@@ -55,7 +55,6 @@ class Accounts(db.Model):
     created_coupons = relationship("Coupons", back_populates="creator")
     favorites = relationship("Favorites", back_populates="account")
     reviews = relationship("Reviews", back_populates="account", foreign_keys="Reviews.account_id")
-    admin_replies = relationship("Reviews", back_populates="admin", foreign_keys="Reviews.admin_reply_by")
 
     def __init__(self, email, password_hash, full_name, google_id=None, provider="local", phone=None,
                  date_of_birth=None, gender=None, address=None, cccd=None, role_account="qcuser", is_active=True):
