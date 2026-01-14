@@ -22,3 +22,4 @@ class ReviewSchema(ma.SQLAlchemySchema):
         return obj.booking.booking_code if obj.booking else None
 
 reviews_schema = ReviewSchema(many=True)
+review_schema = ReviewSchema()

@@ -6,7 +6,8 @@ from src.model.model_booking import Bookings, BookingStatusEnum
 from src.model.model_tour import Tours
 from src.model.model_review import Reviews
 from src.review_images.services import create_review_image, delete_review_images
-from src.marshmallow.library_ma_review import reviews_schema
+from src.marshmallow.library_ma_review import reviews_schema, review_schema
+from src.marshmallow.library_ma_review_images import review_images_schema
 
 #create review user
 def create_review_service():
@@ -167,3 +168,36 @@ def delete_review_service(review_id):
         db.session.rollback()
         current_app.logger.error(f"Lỗi khi xóa review: {str(e)}")
         return jsonify({"message": "Lỗi khi xóa review", "error": str(e)}), 500
+    
+# get detail review
+def read_detail_review_service(review_id):
+    try:
+        account_id = get_jwt_identity()
+        if not account_id:
+            return jsonify({"message": "Không tìm thấy thông tin người dùng từ token"}), 401
+
+        review = Reviews.query.get(review_id)
+        if not review:
+            return jsonify({"message": "Không tìm thấy review"}), 404
+
+        if review.account_id != account_id:
+            return jsonify({"message": "Bạn không có quyền xem chi tiết review này"}), 403
+
+        review_data = review_schema.dump(review)
+        images_data = review_images_schema.dump(review.review_images)
+
+        return jsonify({
+            "review": review_data,
+            "images": images_data,
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()  
+        current_app.logger.error(
+            f"Lỗi khi lấy chi tiết review {review_id}: {str(e)}",
+            exc_info=True
+        )
+        return jsonify({
+            "message": "Lỗi hệ thống khi lấy chi tiết review",
+            "error": str(e)
+        }), 500
