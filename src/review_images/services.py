@@ -5,7 +5,7 @@ from flask import current_app
 from src.extension import db
 from src.model.model_review_image import ReviewImages
 
-
+#create review images
 def create_review_image(review_id, files):
     uploaded_images = []
     failed_uploads = []
@@ -51,3 +51,26 @@ def create_review_image(review_id, files):
         raise Exception(f"Một số ảnh upload thất bại: {failed_uploads}")
 
     return uploaded_images
+
+#delete review image
+def delete_review_images(review_id):
+    deleted_images = []
+    failed_deletes = []
+
+    images = ReviewImages.query.filter_by(review_id=review_id).all()
+    
+    for image in images:
+        try:
+            # Xóa từ Cloudinary
+            cloudinary.uploader.destroy(image.image_public_id)
+            # Xóa từ database
+            db.session.delete(image)
+            deleted_images.append(image.image_id)
+        except Exception as e:
+            current_app.logger.error(f"Lỗi khi xóa image {image.image_id}: {str(e)}")
+            failed_deletes.append({"image_id": image.image_id, "error": str(e)})
+
+    if failed_deletes:
+        raise Exception(f"Một số ảnh xóa thất bại: {failed_deletes}")
+
+    return deleted_images

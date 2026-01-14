@@ -5,7 +5,7 @@ from src.extension import db
 from src.model.model_booking import Bookings, BookingStatusEnum
 from src.model.model_tour import Tours
 from src.model.model_review import Reviews
-from src.review_images.services import create_review_image
+from src.review_images.services import create_review_image, delete_review_images
 from src.marshmallow.library_ma_review import reviews_schema
 
 #create review user
@@ -113,3 +113,57 @@ def get_all_review_user_service():
     except Exception as e:
         current_app.logger.error(f"Lỗi lấy reviews: {str(e)}", exc_info=True)
         return jsonify({"message": "Lấy reviews thất bại", "error": str(e)}), 500
+
+# delete review user
+def delete_review_service(review_id):
+    try:
+        account_id = get_jwt_identity()
+
+        if not review_id:
+            return jsonify({"message": "Thiếu thông tin: review_id"}), 400
+        
+        review = Reviews.query.get(review_id)
+        if not review:
+            return jsonify({"message": "Không tìm thấy review"}), 404
+        
+        if review.account_id != account_id:
+            return jsonify({"message": "Không có quyền xóa review này"}), 403
+        
+        tour = Tours.query.get(review.tour_id)
+        if not tour:
+            return jsonify({"message": "Không tìm thấy tour liên quan"}), 404
+        
+        deleted_images = delete_review_images(review.review_id)
+        
+        removed_rating = review.rating
+        db.session.delete(review)
+        
+        if tour.total_reviews > 0:
+            old_total = tour.total_reviews
+            new_total = old_total - 1
+            if new_total > 0:
+                new_average = (
+                    (tour.rating_average * Decimal(old_total) - Decimal(removed_rating)) / Decimal(new_total)
+                ).quantize(Decimal("0.00"))
+            else:
+                new_average = Decimal("0.00")
+            tour.total_reviews = new_total
+            tour.rating_average = new_average
+        
+        db.session.commit()
+
+        response_data = {
+            "message": "Xóa review thành công",
+            "review_id": review_id
+        }
+        
+        if deleted_images:
+            response_data["deleted_images"] = deleted_images
+            response_data["total_deleted_images"] = len(deleted_images)
+
+        return jsonify(response_data), 200
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Lỗi khi xóa review: {str(e)}")
+        return jsonify({"message": "Lỗi khi xóa review", "error": str(e)}), 500

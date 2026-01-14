@@ -1,6 +1,6 @@
 from flask import Blueprint
 from flask_jwt_extended import jwt_required
-from src.reviews.services import (create_review_service, get_all_review_user_service)
+from src.reviews.services import (create_review_service, get_all_review_user_service, delete_review_service)
 
 reviews = Blueprint("reviews", __name__)
 
@@ -15,3 +15,9 @@ def create_review():
 @jwt_required()
 def get_all_review_user():
     return get_all_review_user_service()
+
+#delete review
+@reviews.route("/delete/<review_id>", methods=["DELETE"])
+@jwt_required()
+def delete_review(review_id):
+    return delete_review_service(review_id)
