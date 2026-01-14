@@ -15,6 +15,7 @@ from src.booking.controller import booking
 from src.booking_passengers.controller import booking_passengers
 from src.payment.controller import payment
 from src.update_status_completed_booking import init_scheduler
+from src.reviews.controller import reviews
 
 def create_app(config_file="config.py"):
     app = Flask(__name__)
@@ -54,6 +55,7 @@ def create_app(config_file="config.py"):
     app.register_blueprint(booking, url_prefix="/booking")
     app.register_blueprint(booking_passengers, url_prefix="/booking-passengers")
     app.register_blueprint(payment, url_prefix="/payment")
+    app.register_blueprint(reviews, url_prefix="/reviews")
 
     #JWT revoke check with Redis
     @jwt.token_in_blocklist_loader

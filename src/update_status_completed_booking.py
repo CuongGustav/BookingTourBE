@@ -42,8 +42,8 @@ def init_scheduler(app):
         scheduler.add_job(
             func=lambda: update_completed_bookings(app),  
             trigger="cron",
-            hour=23,
-            minute=36,
+            hour=0,
+            minute=0,
             timezone=vietnam_tz,
             id="update_completed_bookings",
             name="Cập nhật booking đã hoàn thành",
