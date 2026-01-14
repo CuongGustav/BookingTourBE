@@ -6,8 +6,9 @@ from src.model.model_booking import Bookings, BookingStatusEnum
 from src.model.model_tour import Tours
 from src.model.model_review import Reviews
 from src.review_images.services import create_review_image
+from src.marshmallow.library_ma_review import reviews_schema
 
-
+#create review user
 def create_review_service():
     try:
         account_id = get_jwt_identity()
@@ -72,7 +73,6 @@ def create_review_service():
                     "error": str(e)
                 }), 400
         
-        # Cập nhật rating_average và total_reviews cho tour
         total_reviews = tour.total_reviews + 1
         new_average = (
             tour.rating_average * Decimal(tour.total_reviews) + Decimal(rating)
@@ -97,3 +97,19 @@ def create_review_service():
         db.session.rollback()
         current_app.logger.error(f"Lỗi khi tạo đánh giá: {str(e)}")
         return jsonify({"message": "Lỗi khi tạo đánh giá", "error": str(e)}), 500
+    
+#get all review user
+def get_all_review_user_service():
+    try:
+        account_id = get_jwt_identity()
+        if not account_id:
+            return jsonify({"message": "Không tìm thấy account_id từ token"}), 401
+        
+        reviews = Reviews.query.filter_by(account_id=account_id).all()
+        reviews_data = reviews_schema.dump(reviews)
+
+        return jsonify({"reviews": reviews_data}), 200
+
+    except Exception as e:
+        current_app.logger.error(f"Lỗi lấy reviews: {str(e)}", exc_info=True)
+        return jsonify({"message": "Lấy reviews thất bại", "error": str(e)}), 500
