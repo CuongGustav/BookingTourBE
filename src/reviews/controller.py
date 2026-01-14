@@ -1,7 +1,9 @@
 from flask import Blueprint
 from flask_jwt_extended import jwt_required
+from src.common.decorators import require_role
 from src.reviews.services import (create_review_service, get_all_review_user_service, delete_review_service, 
-                                  read_detail_review_service, update_review_service)
+                                  read_detail_review_service, update_review_service, get_all_review_admin_service,
+                                  read_detail_review_admin_service)
 
 reviews = Blueprint("reviews", __name__)
 
@@ -34,3 +36,17 @@ def read_detail_review(review_id):
 @jwt_required()
 def update_review(review_id):
     return update_review_service(review_id)
+
+#get all review admin
+@reviews.route("/admin/all", methods=["GET"])
+@jwt_required()
+@require_role('qcadmin')
+def get_all_review_admin():
+    return get_all_review_admin_service()
+
+#get detail review admin
+@reviews.route("/admin/<review_id>", methods=["GET"])
+@jwt_required()
+@require_role('qcadmin')
+def read_detail_review_admin(review_id):
+    return read_detail_review_admin_service(review_id)

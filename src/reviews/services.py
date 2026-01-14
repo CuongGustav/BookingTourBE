@@ -303,3 +303,49 @@ def update_review_service(review_id):
             "message": "Lỗi hệ thống khi cập nhật đánh giá",
             "error": str(e)
         }), 500
+    
+#get all review admin
+def get_all_review_admin_service():
+    try:
+        reviews = Reviews.query.order_by(Reviews.created_at.desc()).all()
+        if not reviews:
+            return jsonify({"message":"Không có đánh giá nào trong hệ thống", "data":[]}),200
+        return reviews_schema.dump(reviews),200
+    except Exception as e:
+        return jsonify({"message": f"Lỗi hệ thống khi lấy danh sách đánh giá: {str(e)}"}), 500  
+
+#read detail admin
+def read_detail_review_admin_service(review_id):
+    try:
+
+        review = Reviews.query.get(review_id)
+        if not review:
+            return jsonify({"message": "Không tìm thấy review"}), 404
+
+        account = review.account
+
+        review_data = review_schema.dump(review)
+        images_data = review_images_schema.dump(review.review_images)
+        account_info = {
+            "account_id": account.account_id,
+            "full_name": account.full_name,
+            "email": account.email,
+            "phone": account.phone
+        }
+
+        return jsonify({
+            "review": review_data,
+            "images": images_data,
+            "account": account_info,
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()  
+        current_app.logger.error(
+            f"Lỗi khi lấy chi tiết review {review_id}: {str(e)}",
+            exc_info=True
+        )
+        return jsonify({
+            "message": "Lỗi hệ thống khi lấy chi tiết review",
+            "error": str(e)
+        }), 500
