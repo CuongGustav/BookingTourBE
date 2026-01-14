@@ -74,3 +74,27 @@ def delete_review_images(review_id):
         raise Exception(f"Một số ảnh xóa thất bại: {failed_deletes}")
 
     return deleted_images
+
+#delete image for update
+def delete_review_images_by_ids(review_id: str, image_ids: list):
+    deleted_ids = []
+    failed = []
+
+    images = ReviewImages.query.filter(
+        ReviewImages.review_id == review_id,
+        ReviewImages.image_id.in_(image_ids)
+    ).all()
+
+    for image in images:
+        try:
+            cloudinary.uploader.destroy(image.image_public_id)
+            db.session.delete(image)
+            deleted_ids.append(image.image_id)
+        except Exception as e:
+            current_app.logger.error(f"Lỗi xóa ảnh {image.image_id}: {str(e)}")
+            failed.append({"image_id": image.image_id, "error": str(e)})
+
+    if failed:
+        raise Exception(f"Một số ảnh xóa thất bại: {failed}")
+
+    return deleted_ids

@@ -5,7 +5,7 @@ from src.extension import db
 from src.model.model_booking import Bookings, BookingStatusEnum
 from src.model.model_tour import Tours
 from src.model.model_review import Reviews
-from src.review_images.services import create_review_image, delete_review_images
+from src.review_images.services import create_review_image, delete_review_images, delete_review_images_by_ids
 from src.marshmallow.library_ma_review import reviews_schema, review_schema
 from src.marshmallow.library_ma_review_images import review_images_schema
 
@@ -199,5 +199,107 @@ def read_detail_review_service(review_id):
         )
         return jsonify({
             "message": "Lỗi hệ thống khi lấy chi tiết review",
+            "error": str(e)
+        }), 500
+    
+#update review service
+def update_review_service(review_id):
+    try:
+        account_id = get_jwt_identity()
+
+        review = Reviews.query.get(review_id)
+        if not review:
+            return jsonify({"message": "Không tìm thấy đánh giá"}), 404
+
+        if review.account_id != account_id:
+            return jsonify({"message": "Bạn không có quyền chỉnh sửa đánh giá này"}), 403
+
+        data = request.form
+        new_rating_str = data.get("rating")
+        new_comment = data.get("comment")
+        image_ids_to_delete = data.getlist("delete_image_ids[]")  
+
+        has_changes = False
+        new_rating = review.rating
+        if new_rating_str is not None:
+            try:
+                new_rating = int(new_rating_str)
+                if new_rating < 1 or new_rating > 5:
+                    return jsonify({"message": "Đánh giá phải từ 1 đến 5 sao"}), 400
+                if new_rating != review.rating:
+                    has_changes = True
+            except ValueError:
+                return jsonify({"message": "Giá trị rating không hợp lệ"}), 400
+
+        if new_comment is not None and new_comment.strip() != review.comment.strip():
+            has_changes = True
+
+        files = request.files.getlist("images")
+        has_new_images = any(file and file.filename for file in files)
+
+        if not (has_changes or has_new_images or image_ids_to_delete):
+            return jsonify({"message": "Không có thay đổi nào được gửi lên"}), 400
+
+        old_rating = review.rating
+
+        if new_rating_str is not None:
+            review.rating = new_rating
+        if new_comment is not None:
+            review.comment = new_comment.strip()
+
+        db.session.flush() 
+
+        deleted_image_count = 0
+        if image_ids_to_delete:
+            try:
+                deleted_ids = delete_review_images_by_ids(review_id, image_ids_to_delete)
+                deleted_image_count = len(deleted_ids)
+            except Exception as e:
+                db.session.rollback()
+                current_app.logger.error(f"Lỗi xóa ảnh khi update review: {str(e)}")
+                return jsonify({
+                    "message": "Lỗi khi xóa ảnh cũ",
+                    "error": str(e)
+                }), 400
+
+        uploaded_images = []
+        if files and any(file.filename for file in files):
+            try:
+                uploaded_images = create_review_image(review.review_id, files)
+            except Exception as e:
+                db.session.rollback()
+                current_app.logger.error(f"Lỗi upload ảnh mới khi update: {str(e)}")
+                return jsonify({
+                    "message": "Lỗi khi upload ảnh mới",
+                    "error": str(e)
+                }), 400
+
+        tour = Tours.query.get(review.tour_id)
+        if not tour:
+            db.session.rollback()
+            return jsonify({"message": "Không tìm thấy tour liên quan"}), 404
+
+        if new_rating != old_rating:
+            if tour.total_reviews > 0:
+                current_total_score = Decimal(tour.rating_average) * Decimal(tour.total_reviews)
+                new_total_score = current_total_score - Decimal(old_rating) + Decimal(new_rating)
+                tour.rating_average = (new_total_score / Decimal(tour.total_reviews)).quantize(Decimal("0.00"))
+            else:
+                tour.rating_average = Decimal(new_rating)
+
+        db.session.commit()
+
+        updated_review = review_schema.dump(review)
+        response_data = {
+            "message": "Cập nhật đánh giá thành công",
+        }
+
+        return jsonify(response_data), 200
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Lỗi khi cập nhật review {review_id}: {str(e)}", exc_info=True)
+        return jsonify({
+            "message": "Lỗi hệ thống khi cập nhật đánh giá",
             "error": str(e)
         }), 500
