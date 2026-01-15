@@ -349,3 +349,51 @@ def read_detail_review_admin_service(review_id):
             "message": "Lỗi hệ thống khi lấy chi tiết review",
             "error": str(e)
         }), 500
+
+#get all review by tour_id
+def get_all_review_by_tour_id_service(tour_id):
+    try:
+        tour = Tours.query.get(tour_id)
+        if not tour:
+            return jsonify({"message": "Không tìm thấy tour"}), 404
+
+        reviews_list = []
+        
+        reviews = Reviews.query\
+            .filter_by(tour_id=tour_id)\
+            .order_by(Reviews.created_at.desc())\
+            .all()
+        
+        for review in reviews:
+            review_data = review_schema.dump(review)
+            
+            images_data = review_images_schema.dump(review.review_images)
+            
+            account = review.account
+            account_info = {
+                "account_id": account.account_id,
+                "full_name": account.full_name,
+                "email": account.email,
+                "phone": account.phone
+            }
+            
+            reviews_list.append({
+                "review": review_data,
+                "images": images_data,
+                "account": account_info
+            })
+
+        return jsonify({
+            "reviews": reviews_list,
+            "total": len(reviews_list)
+        }), 200
+
+    except Exception as e:
+        current_app.logger.error(
+            f"Lỗi khi lấy danh sách review cho tour {tour_id}: {str(e)}",
+            exc_info=True
+        )
+        return jsonify({
+            "message": "Lỗi hệ thống khi lấy danh sách review",
+            "error": str(e)
+        }), 500
