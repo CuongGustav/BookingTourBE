@@ -34,8 +34,7 @@ def create_app(config_file="config.py"):
     CORS(app, 
          supports_credentials=True, 
          origins=origins,
-         allow_headers=["Content-Type", "Authorization"],
-         expose_headers=["Set-Cookie"]) 
+         allow_headers=["Content-Type", "Authorization"]) 
 
     # JWT cookie config - QUAN TRỌNG
     app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
