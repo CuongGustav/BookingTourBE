@@ -3,7 +3,7 @@ import os
 import uuid
 import cloudinary
 from flask import current_app, jsonify, request
-from sqlalchemy import and_, exists
+from sqlalchemy import and_, exists, func
 from sqlalchemy.orm import joinedload
 from werkzeug.utils import secure_filename
 from flask_jwt_extended import get_jwt_identity
@@ -623,3 +623,96 @@ def update_tour_admin_service(tour_id):
         db.session.rollback()
         current_app.logger.error(f"Lỗi cập nhật tour: {str(e)}", exc_info=True)
         return jsonify({"message": "Cập nhật tour thất bại", "error": str(e)}), 500
+    
+#get 4 tour hot service
+def get_4_hot_tours_service():
+    try:
+        booking_count_subquery = (
+            db.session.query(
+                Bookings.tour_id,
+                func.count(Bookings.booking_id).label('booking_count')
+            )
+            .filter(
+                Bookings.status.in_([
+                    BookingStatusEnum.COMPLETED.value,
+                    BookingStatusEnum.CONFIRMED.value,
+                    BookingStatusEnum.PAID.value
+                ])
+            )
+            .group_by(Bookings.tour_id)
+            .subquery()
+        )
+        
+        tours = (
+            db.session.query(Tours)
+            .outerjoin(
+                booking_count_subquery,
+                Tours.tour_id == booking_count_subquery.c.tour_id
+            )
+            .options(joinedload(Tours.schedules))
+            .filter(Tours.is_active == True)
+            .order_by(
+                Tours.is_featured.desc(),
+                func.coalesce(booking_count_subquery.c.booking_count, 0).desc(),
+                Tours.rating_average.desc(),
+                Tours.created_at.desc()
+            )
+            .limit(4)
+            .all()
+        )
+        
+        if not tours:
+            return jsonify({
+                "message": "Không có tour hot nào",
+                "data": []
+            }), 200
+        
+        result = []
+        for tour in tours:
+            tour_data = tourInfo_schema.dump(tour)
+            
+            upcoming_schedules = (
+                Tour_Schedules.query
+                .filter(
+                    Tour_Schedules.tour_id == tour.tour_id,
+                    Tour_Schedules.departure_date >= datetime.now().date(),
+                    Tour_Schedules.status == ScheduleStatusEnum.AVAILABLE.value
+                )
+                .order_by(Tour_Schedules.departure_date.asc())
+                .limit(2)
+                .all()
+            )
+            
+            schedules_data = tour_schedule_schema.dump(upcoming_schedules)
+            tour_data["upcoming_schedules"] = schedules_data
+            tour_data["is_like"] = check_favorite_service(tour.tour_id)
+            
+            booking_count = (
+                db.session.query(func.count(Bookings.booking_id))
+                .filter(
+                    Bookings.tour_id == tour.tour_id,
+                    Bookings.status.in_([
+                        BookingStatusEnum.COMPLETED.value,
+                        BookingStatusEnum.CONFIRMED.value,
+                        BookingStatusEnum.PAID.value
+                    ])
+                )
+                .scalar() or 0
+            )
+            tour_data["total_bookings"] = booking_count
+            
+            result.append(tour_data)
+        
+        return jsonify({
+            "message": "Lấy danh sách tour hot thành công",
+            "data": result
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(
+            f"Lỗi khi lấy danh sách tour hot: {str(e)}",
+            exc_info=True
+        )
+        return jsonify({
+            "message": f"Lỗi hệ thống: {str(e)}"
+        }), 500

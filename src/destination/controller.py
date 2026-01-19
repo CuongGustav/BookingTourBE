@@ -3,7 +3,7 @@ from src.common.decorators import require_role
 from src.destination.services import (get_cloudinary_usage_service, add_destination_service, get_all_destination_admin_service,
                                       get_destination_by_uuid_admin_service, update_destination_admin_service,
                                       delete_destination_admin_service, get_all_destination_by_region_service,
-                                      get_all_destination_create_tour_admin_service)
+                                      get_all_destination_create_tour_admin_service, get_all_destination_service)
 
 destination = Blueprint("destination", __name__)
 
@@ -16,8 +16,12 @@ def add_destination():
     return add_destination_service()
 
 @destination.route("/admin/all", methods=["GET"])
-def get_all_destination():
+def get_all_destination_admin():
     return get_all_destination_admin_service()
+
+@destination.route("/all", methods=["GET"])
+def get_all_destination():
+    return get_all_destination_service()
 
 @destination.route("/admin/<string:destination_id>", methods=["GET"])
 def get_destination_by_uuid(destination_id):

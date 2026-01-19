@@ -310,3 +310,13 @@ def get_destination_by_tour_id_service(tour_id):
         print(f"[DestinationService] Lỗi ở hàm get_destination_by_tour_id_service {tour_id}: {str(e)}")
         db.session.rollback()
         return []
+    
+#get all destination 
+def get_all_destination_service ():
+    try:
+        destinations = Destinations.query.order_by(Destinations.region.desc()).all()
+        if not destinations:
+            return jsonify({"message":"Không có địa điểm nào trong hệ thống", "data":[]}),200
+        return destinationCreateTour_schema.dump(destinations),200
+    except Exception as e:
+        return jsonify({"message": f"Lỗi hệ thống khi lấy danh sách điểm đến: {str(e)}"}), 500
