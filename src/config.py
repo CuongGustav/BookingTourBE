@@ -4,6 +4,19 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+print("=" * 50)
+print("CHECKING ENVIRONMENT VARIABLES:")
+db_url = os.getenv("DB_URL")
+database_url = os.getenv("DATABASE_URL")
+mysql_url = os.getenv("MYSQL_URL")
+redis_url = os.getenv("REDIS_PUBLIC_URL") or os.getenv("REDIS_URL")
+
+print(f"DB_URL: {'Found' if db_url else 'Not found'}")
+print(f"DATABASE_URL: {'Found' if database_url else 'Not found'}")
+print(f"MYSQL_URL: {'Found' if mysql_url else 'Not found'}")
+print(f"REDIS_PUBLIC_URL/REDIS_URL: {'Found' if redis_url else 'Not found'}")
+print("=" * 50)
+
 DATABASE_URL = (
     os.getenv("DB_URL") or 
     os.getenv("DATABASE_URL") or 
@@ -15,7 +28,11 @@ if not DATABASE_URL:
 SQLALCHEMY_DATABASE_URI = DATABASE_URL
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 JWT_SECRET_KEY = os.getenv("FLASK_JWT_SECRET_KEY")
-REDIS_PUBLIC_URL = os.getenv("REDIS_PUBLIC_URL")
+
+REDIS_PUBLIC_URL = (
+    os.getenv("REDIS_PUBLIC_URL") or
+    os.getenv("REDIS_URL")
+)
 
 # Add these JWT cookie configurations
 JWT_TOKEN_LOCATION = ["cookies"]

@@ -18,7 +18,10 @@ db = SQLAlchemy()
 ma = Marshmallow()
 jwt = JWTManager()
 
-REDIS_PUBLIC_URL = os.getenv("REDIS_PUBLIC_URL")
+REDIS_PUBLIC_URL = (
+    os.getenv("REDIS_PUBLIC_URL") or
+    os.getenv("REDIS_URL")
+)
 
 redis_blocklist = None
 
