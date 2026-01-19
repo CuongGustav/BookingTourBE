@@ -15,7 +15,7 @@ fe_url = os.getenv("FE_URL")
 print(f"DB_URL: {'Found' if db_url else 'Not found'}")
 print(f"DATABASE_URL: {'Found' if database_url else 'Not found'}")
 print(f"MYSQL_URL: {'Found' if mysql_url else 'Not found'}")
-print(f"FE_URL: {'Found' if fe_url else 'Not found'}")
+print(f"FE_URL: {fe_url if fe_url else 'Not found'}")  # ← SỬA DÒNG NÀY
 print(f"REDIS_PUBLIC_URL/REDIS_URL: {'Found' if redis_url else 'Not found'}")
 print("=" * 50)
 
@@ -26,7 +26,8 @@ DATABASE_URL = (
 )
 
 if not DATABASE_URL:
-    raise RuntimeError("Thiếu biến môi trường Database URL (đã thử DB_URL, DATABASE_URL, MYSQL_URL)")
+    raise RuntimeError("Thiếu biến môi trường Database URL")
+    
 SQLALCHEMY_DATABASE_URI = DATABASE_URL
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 JWT_SECRET_KEY = os.getenv("FLASK_JWT_SECRET_KEY")
@@ -36,31 +37,31 @@ REDIS_PUBLIC_URL = (
     os.getenv("REDIS_URL")
 )
 
-# Add these JWT cookie configurations
+# JWT cookie configurations
 JWT_TOKEN_LOCATION = ["cookies"]
-JWT_COOKIE_SECURE = True  # Set to True in production with HTTPS
-JWT_COOKIE_CSRF_PROTECT = False  # Set to True in production
+JWT_COOKIE_SECURE = True
+JWT_COOKIE_CSRF_PROTECT = False
 JWT_ACCESS_COOKIE_PATH = "/"
 JWT_REFRESH_COOKIE_PATH = "/"
-JWT_COOKIE_SAMESITE = None
-JWT_COOKIE_DOMAIN = None  # Or set to "localhost" for local development
+JWT_COOKIE_SAMESITE = "None"  # ← ĐỔI THÀNH STRING
+JWT_COOKIE_DOMAIN = None
 
-#google oauth
+# Google OAuth
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID") 
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET") 
 GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
 
-#cloudinary
+# Cloudinary
 CLOUDINARY_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
 CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
 CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
 
 cloudinary.config(
-    cloud_name = CLOUDINARY_NAME,
-    api_key = CLOUDINARY_API_KEY,
-    api_secret = CLOUDINARY_API_SECRET,
-    secure = True
+    cloud_name=CLOUDINARY_NAME,
+    api_key=CLOUDINARY_API_KEY,
+    api_secret=CLOUDINARY_API_SECRET,
+    secure=True
 )
 
-#FE URL
+# FE URL
 FE_URL = os.getenv("FE_URL")
