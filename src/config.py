@@ -10,10 +10,12 @@ db_url = os.getenv("DB_URL")
 database_url = os.getenv("DATABASE_URL")
 mysql_url = os.getenv("MYSQL_URL")
 redis_url = os.getenv("REDIS_PUBLIC_URL") or os.getenv("REDIS_URL")
+fe_url = os.getenv("FE_URL")
 
 print(f"DB_URL: {'Found' if db_url else 'Not found'}")
 print(f"DATABASE_URL: {'Found' if database_url else 'Not found'}")
 print(f"MYSQL_URL: {'Found' if mysql_url else 'Not found'}")
+print(f"FE_URL: {'Found' if fe_url else 'Not found'}")
 print(f"REDIS_PUBLIC_URL/REDIS_URL: {'Found' if redis_url else 'Not found'}")
 print("=" * 50)
 
@@ -36,11 +38,11 @@ REDIS_PUBLIC_URL = (
 
 # Add these JWT cookie configurations
 JWT_TOKEN_LOCATION = ["cookies"]
-JWT_COOKIE_SECURE = False  # Set to True in production with HTTPS
+JWT_COOKIE_SECURE = True  # Set to True in production with HTTPS
 JWT_COOKIE_CSRF_PROTECT = False  # Set to True in production
 JWT_ACCESS_COOKIE_PATH = "/"
 JWT_REFRESH_COOKIE_PATH = "/"
-JWT_COOKIE_SAMESITE = "Lax"
+JWT_COOKIE_SAMESITE = None
 JWT_COOKIE_DOMAIN = None  # Or set to "localhost" for local development
 
 #google oauth

@@ -24,18 +24,27 @@ def create_app(config_file="config.py"):
     app.config.from_pyfile(config_file)
 
     fe_url = app.config.get('FE_URL')
-    origins = [fe_url] if fe_url else ["http://localhost:3000", "http://127.0.0.1:3000"]  
+    
+    origins = [
+        "https://booking-tour-fe.vercel.app",
+        "http://localhost:3000", 
+        "http://127.0.0.1:3000"
+    ]
 
-    CORS(app, supports_credentials=True, origins=origins,
-         allow_headers=["Content-Type", "Authorization"])
+    CORS(app, 
+         supports_credentials=True, 
+         origins=origins,
+         allow_headers=["Content-Type", "Authorization"],
+         expose_headers=["Set-Cookie"]) 
 
-    # JWT cookie config
+    # JWT cookie config - QUAN TRỌNG
     app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
-    app.config["JWT_COOKIE_SECURE"] = False  # False vì dev local (HTTP)
-    app.config["JWT_COOKIE_SAMESITE"] = "Lax" # Hoặc "None" nếu cần cross-site
+    app.config["JWT_COOKIE_SECURE"] = True  
+    app.config["JWT_COOKIE_SAMESITE"] = "None"  
     app.config["JWT_ACCESS_COOKIE_PATH"] = "/"
     app.config["JWT_REFRESH_COOKIE_PATH"] = "/auth/refresh"
     app.config["JWT_COOKIE_CSRF_PROTECT"] = False
+    app.config["JWT_COOKIE_DOMAIN"] = None  
 
     db.init_app(app)
     jwt.init_app(app)
