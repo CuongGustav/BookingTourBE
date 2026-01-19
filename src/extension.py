@@ -18,4 +18,14 @@ db = SQLAlchemy()
 ma = Marshmallow()
 jwt = JWTManager()
 
-redis_blocklist = redis.from_url(os.getenv("REDIS_URL"), decode_responses=True)
+REDIS_URL = os.getenv("REDIS_URL")
+
+if not REDIS_URL:
+    raise RuntimeError("REDIS_URL environment variable is missing")
+
+redis_blocklist = redis.from_url(
+    REDIS_URL,
+    decode_responses=True,
+    socket_timeout=5,
+    socket_connect_timeout=5
+)
