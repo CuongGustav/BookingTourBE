@@ -18,14 +18,14 @@ db = SQLAlchemy()
 ma = Marshmallow()
 jwt = JWTManager()
 
-REDIS_URL = os.getenv("REDIS_PUBLIC_URL")
+REDIS_PUBLIC_URL = os.getenv("REDIS_PUBLIC_URL")
 
 redis_blocklist = None
 
-if REDIS_URL:
+if REDIS_PUBLIC_URL:
     try:
         redis_blocklist = redis.from_url(
-            REDIS_URL,
+            REDIS_PUBLIC_URL,
             decode_responses=True,
             socket_timeout=5,
             socket_connect_timeout=5
@@ -36,4 +36,4 @@ if REDIS_URL:
         print("Redis connection failed:", e)
         redis_blocklist = None
 else:
-    print("⚠ Redis URL not found, JWT revoke will be disabled")
+    print("Redis URL not found, JWT revoke will be disabled")

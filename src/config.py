@@ -4,10 +4,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SQLALCHEMY_DATABASE_URI = os.getenv("DB_URL")
+DATABASE_URL = os.getenv("DB_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DB_URL environment variable is missing")
+
+SQLALCHEMY_DATABASE_URI = DATABASE_URL
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 JWT_SECRET_KEY = os.getenv("FLASK_JWT_SECRET_KEY")
-REDIS_URL = os.getenv("REDIS_PUBLIC_URL")
+REDIS_PUBLIC_URL = os.getenv("REDIS_PUBLIC_URL")
 
 # Add these JWT cookie configurations
 JWT_TOKEN_LOCATION = ["cookies"]

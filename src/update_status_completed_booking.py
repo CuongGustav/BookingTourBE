@@ -77,8 +77,8 @@ def init_scheduler(app):
         scheduler.add_job(
             func=lambda: deactivate_expired_coupons(app),
             trigger="cron",
-            hour=20,
-            minute=49,
+            hour=0,
+            minute=6,
             timezone=vietnam_tz,
             id="deactivate_expired_coupons",
             name="Tắt các coupon đã hết hạn",

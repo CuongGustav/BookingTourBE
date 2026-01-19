@@ -23,6 +23,9 @@ def create_app(config_file="config.py"):
     app = Flask(__name__)
     app.config.from_pyfile(config_file)
 
+    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DB_URL")
+
+
     fe_url = app.config.get('FE_URL')
     origins = [fe_url] if fe_url else ["http://localhost:3000", "http://127.0.0.1:3000"]  
 
