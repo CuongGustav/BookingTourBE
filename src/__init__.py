@@ -1,3 +1,4 @@
+import os
 from flask import Flask
 from flask_cors import CORS
 from src.extension import db, ma, jwt, redis_blocklist
@@ -22,10 +23,11 @@ def create_app(config_file="config.py"):
     app = Flask(__name__)
     app.config.from_pyfile(config_file)
 
-    CORS(app, supports_credentials=True, origins=[
-    "http://localhost:3000",
-    "http://127.0.0.1:3000"
-    ], allow_headers=["Content-Type", "Authorization"])
+    fe_url = app.config.get('FE_URL')
+    origins = [fe_url] if fe_url else ["http://localhost:3000", "http://127.0.0.1:3000"]  
+
+    CORS(app, supports_credentials=True, origins=origins,
+         allow_headers=["Content-Type", "Authorization"])
 
     # JWT cookie config
     app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
@@ -40,7 +42,8 @@ def create_app(config_file="config.py"):
     ma.init_app(app)
 
     with app.app_context():
-        db.create_all()
+        if os.getenv("FLASK_ENV") != "production":
+            db.create_all()
         init_scheduler(app)
 
     app.register_blueprint(auth, url_prefix="/auth")

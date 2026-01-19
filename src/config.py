@@ -34,3 +34,6 @@ cloudinary.config(
     api_secret = CLOUDINARY_API_SECRET,
     secure = True
 )
+
+#FE URL
+FE_URL = os.getenv("FE_URL")
