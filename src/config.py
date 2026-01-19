@@ -4,10 +4,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DB_URL")
-if not DATABASE_URL:
-    raise RuntimeError("DB_URL environment variable is missing")
+DATABASE_URL = (
+    os.getenv("DB_URL") or 
+    os.getenv("DATABASE_URL") or 
+    os.getenv("MYSQL_URL")
+)
 
+if not DATABASE_URL:
+    raise RuntimeError("Thiếu biến môi trường Database URL (đã thử DB_URL, DATABASE_URL, MYSQL_URL)")
 SQLALCHEMY_DATABASE_URI = DATABASE_URL
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 JWT_SECRET_KEY = os.getenv("FLASK_JWT_SECRET_KEY")
