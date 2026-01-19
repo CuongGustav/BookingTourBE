@@ -67,6 +67,8 @@ def create_app(config_file="config.py"):
     @jwt.token_in_blocklist_loader
     def check_if_token_revoked(jwt_header, jwt_data):
         jti = jwt_data["jti"]
+        if not redis_blocklist:
+            return False
         token_in_redis = redis_blocklist.get(jti)
         return token_in_redis is not None
 
