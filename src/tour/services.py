@@ -250,15 +250,15 @@ def get_all_tour_by_account_and_like_service():
         )
         return jsonify({"message": "Lỗi hệ thống"}), 500
 
-#get 8 tour
-def get_8_tour_service():
+#get 4 tour
+def get_4_tour_service():
     try:
         tours = (
             Tours.query
             .options(joinedload(Tours.schedules))
             .filter(Tours.is_active == True)
             .order_by(Tours.created_at.desc())
-            .limit(8)
+            .limit(4)
             .all()
         )
         result = []

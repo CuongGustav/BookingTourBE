@@ -1,7 +1,7 @@
 from flask import Blueprint
 from flask_jwt_extended import jwt_required
 from src.common.decorators import require_role
-from src.tour.services import(create_tour_admin_service, get_all_tour_service, get_all_tour_admin_service, get_8_tour_service,
+from src.tour.services import(create_tour_admin_service, get_all_tour_service, get_all_tour_admin_service, get_4_tour_service,
                              filter_tours_service, get_tour_detail_service, delete_soft_tour_admin_service, get_tour_detail_admin_service,
                              update_tour_admin_service, get_all_tour_by_account_and_like_service, get_4_hot_tours_service)
 
@@ -23,9 +23,9 @@ def get_all_tour_admin():
 def get_all_tour():
     return get_all_tour_service()
 
-@tour.route("/8tour", methods=["GET"])
-def get_8_tour():
-    return get_8_tour_service()
+@tour.route("/4tour", methods=["GET"])
+def get_4_tour():
+    return get_4_tour_service()
 
 @tour.route("/tourhot", methods=["GET"])
 def get_4_hot_tours():

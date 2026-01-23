@@ -20,35 +20,93 @@ def create_tour_schedules_admin_service():
         if not schedules_data or len(schedules_data) == 0:
             return jsonify({"message": "Không có dữ liệu về Lịch trình khởi hành"}), 400
         
+        tour = Tours.query.get(tour_id)
+        if not tour:
+            return jsonify({"message": "Tour không tồn tại"}), 404
+        
         created_schedules = []
         errors = []
 
         for idx, item in enumerate(schedules_data):
-            # Validate item 
-            errors_item = tour_schedule_create_schema.validate(item)
-            if errors_item:
-                errors.append({"index": idx, "errors": errors_item})
-                continue
+            try:
+                errors_item = tour_schedule_create_schema.validate(item)
+                if errors_item:
+                    errors.append({"index": idx, "data": item, "errors": errors_item})
+                    continue
 
-            new_schedule = Tour_Schedules(
-                tour_id=tour_id,
-                departure_date=item.get("departure_date"),
-                return_date=item.get("return_date"),
-                available_seats=item.get("available_seats"),
-                price_adult=item.get("price_adult"),
-                price_child=item.get("price_child"),
-                price_infant=item.get("price_infant")
-            )
-            db.session.add(new_schedule)
-            created_schedules.append(new_schedule)
+                required_fields = ["departure_date", "return_date", "available_seats", 
+                                 "price_adult", "price_child", "price_infant"]
+                missing_fields = [field for field in required_fields if not item.get(field)]
+                if missing_fields:
+                    errors.append({
+                        "index": idx, 
+                        "data": item,
+                        "errors": f"Thiếu các trường: {', '.join(missing_fields)}"
+                    })
+                    continue
+
+                departure = item.get("departure_date")
+                return_date = item.get("return_date")
+                if return_date <= departure:
+                    errors.append({
+                        "index": idx,
+                        "data": item, 
+                        "errors": "Ngày về phải sau ngày đi"
+                    })
+                    continue
+
+                existing = Tour_Schedules.query.filter_by(
+                    tour_id=tour_id,
+                    departure_date=departure
+                ).first()
+                if existing:
+                    errors.append({
+                        "index": idx,
+                        "data": item,
+                        "errors": "Lịch trình với ngày khởi hành này đã tồn tại"
+                    })
+                    continue
+
+                new_schedule = Tour_Schedules(
+                    tour_id=tour_id,
+                    departure_date=departure,
+                    return_date=return_date,
+                    available_seats=item.get("available_seats"),
+                    price_adult=item.get("price_adult"),
+                    price_child=item.get("price_child"),
+                    price_infant=item.get("price_infant")
+                )
+                db.session.add(new_schedule)
+                created_schedules.append(new_schedule)
+                
+            except Exception as item_error:
+                errors.append({
+                    "index": idx,
+                    "data": item,
+                    "errors": str(item_error)
+                })
+                continue
+        
         if errors:
             db.session.rollback()
-            return jsonify({"message": "Lỗi xác nhận", "errors": errors}), 400
+            return jsonify({
+                "message": "Có lỗi xảy ra khi tạo lịch trình",
+                "total_sent": len(schedules_data),
+                "total_valid": len(created_schedules),
+                "total_errors": len(errors),
+                "errors": errors
+            }), 400
         
         db.session.commit()
-        return jsonify({"message": "Tạo lịch trình khởi hành thành công"}), 201
+        
+        return jsonify({
+            "message": "Tạo lịch trình khởi hành thành công",
+            "total_created": len(created_schedules)
+        }), 201
+        
     except Exception as e:
         db.session.rollback()
+        current_app.logger.error(f"Lỗi tạo lịch trình: {str(e)}", exc_info=True)
         return jsonify({"message": f"Lỗi server: {str(e)}"}), 500
     
 #get tour schedule
