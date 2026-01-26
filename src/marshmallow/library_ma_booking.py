@@ -20,6 +20,8 @@ class ReadBookingUserSchema(ma.SQLAlchemySchema):
     total_price = ma.auto_field()
     discount_amount = ma.auto_field()
     final_price = ma.auto_field()
+    paid_money = ma.auto_field()
+    is_full_payment = ma.auto_field()
     contact_name = ma.auto_field()
     contact_email = ma.auto_field()
     contact_phone = ma.auto_field()

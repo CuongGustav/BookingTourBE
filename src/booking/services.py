@@ -48,6 +48,7 @@ def generate_booking_code():
 
     return new_code
 
+#create booking user service
 def create_booking_service():
     data = request.get_json()
     try:
@@ -110,8 +111,14 @@ def create_booking_service():
                 discount_amount = coupon.max_discount_amount
 
         final_price = total_price - discount_amount
-
+        is_full_payment = data.get("is_full_payment", 1)
         booking_code = generate_booking_code()
+        if is_full_payment == 1:
+            required_payment = final_price
+            remaining_amount = 0
+        else:
+            required_payment = final_price * 0.4
+            remaining_amount = final_price * 0.6
 
         booking = Bookings(
             booking_code=booking_code,
@@ -131,6 +138,9 @@ def create_booking_service():
             contact_address=data["contact_address"],
             special_request=data.get("special_request"),
             status=BookingStatusEnum.PENDING.value,
+            is_full_payment=is_full_payment,
+            paid_money=0,
+            remaining_amount=remaining_amount,
         )
 
         db.session.add(booking)
@@ -155,7 +165,10 @@ def create_booking_service():
         return jsonify({
             "message": "Đặt chỗ thành công",
             "booking_id": booking.booking_id,
-            "booking_code": booking.booking_code
+            "booking_code": booking.booking_code,
+            "is_full_payment": is_full_payment,
+            "required_payment": float(required_payment),
+            "remaining_amount": float(remaining_amount)
         }), 201
 
     except Exception as e:

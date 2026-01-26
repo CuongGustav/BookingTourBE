@@ -1,6 +1,6 @@
 import uuid
 from enum import Enum as PyEnum
-from sqlalchemy import Column, String, Integer, DECIMAL, TIMESTAMP, Text, ForeignKey, func, Enum as SAEnum
+from sqlalchemy import Boolean, Column, String, Integer, DECIMAL, TIMESTAMP, Text, ForeignKey, func, Enum as SAEnum
 from sqlalchemy.orm import relationship
 from src.extension import db
 
@@ -12,6 +12,7 @@ class BookingStatusEnum(PyEnum):
     COMPLETED = "completed"
     CANCELLED = "cancelled"
     CANCEL_PENDING = "cancel_pending"
+    DEPOSIT = "deposit"
 
 
 class Bookings(db.Model):
@@ -29,6 +30,9 @@ class Bookings(db.Model):
     total_price = Column(DECIMAL(10,2), nullable=False)
     discount_amount = Column(DECIMAL(10,2), default=0)
     final_price = Column(DECIMAL(10,2), nullable=False)
+    paid_money = Column(DECIMAL(10,2), nullable=False)
+    is_full_payment = Column(Boolean, default=False)
+    remaining_amount = Column(DECIMAL(10,2), default=0)
     contact_name = Column(String(255), nullable=False)
     contact_email = Column(String(255), nullable=False)
     contact_phone = Column(String(10), nullable=False)
@@ -45,7 +49,7 @@ class Bookings(db.Model):
     created_at = Column(TIMESTAMP, server_default=func.now(), nullable=False)
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    # back_populates để thiết lập quan hệ hai chiều, cho phép truy vấn ngươpc lại từ bảng liên quan
+    # back_populates để thiết lập quan hệ hai chiều, cho phép truy vấn ngươc lại từ bảng liên quan
     account = relationship("Accounts", back_populates="bookings")
     tour = relationship("Tours", back_populates="bookings")
     schedule = relationship("Tour_Schedules", back_populates="bookings")
@@ -56,8 +60,8 @@ class Bookings(db.Model):
 
     def __init__(self, booking_code, account_id, tour_id, schedule_id,
                  total_price, final_price, contact_name, contact_email, contact_phone, contact_address,
-                 num_adults=1, num_children=0, num_infants=0,
-                 coupon_id=None, discount_amount=0, special_request=None,
+                 num_adults=1, num_children=0, num_infants=0, remaining_amount=0, is_full_payment=False,
+                 coupon_id=None, discount_amount=0, special_request=None, paid_money=0,
                  status=BookingStatusEnum.PENDING.value, cancellation_reason=None, cancelled_at=None):
         self.booking_id = str(uuid.uuid4())
         self.booking_code = booking_code
@@ -79,3 +83,6 @@ class Bookings(db.Model):
         self.status = status
         self.cancellation_reason = cancellation_reason
         self.cancelled_at = cancelled_at
+        self.paid_money = paid_money
+        self.remaining_amount = remaining_amount
+        self.is_full_payment = is_full_payment

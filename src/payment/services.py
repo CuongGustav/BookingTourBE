@@ -26,7 +26,7 @@ def create_payment_service():
         try:
             amount = float(amount)
         except ValueError:
-            return jsonify({"message": "Thiếu giá"}), 400
+            return jsonify({"message": "Số tiền không hợp lệ"}), 400
 
         if payment_method not in [e.value for e in PaymentMethodEnum]:
             return jsonify({"message": "Phương thức thanh toán không hợp lệ"}), 400
@@ -38,8 +38,39 @@ def create_payment_service():
         if booking.account_id != account_id:
             return jsonify({"message": "Sai tài khoản"}), 403
 
-        if booking.status != BookingStatusEnum.PENDING:
+        if booking.status not in [BookingStatusEnum.PENDING, BookingStatusEnum.DEPOSIT]:
             return jsonify({"message": "Booking không phải ở trạng thái đang xử lý"}), 400
+
+        final_price_float = float(booking.final_price)
+        
+        if booking.status == BookingStatusEnum.DEPOSIT:
+            required_amount = float(booking.remaining_amount)
+            is_deposit_payment = False
+        else:
+            deposit_amount = final_price_float * 0.4
+            full_amount = final_price_float
+            
+            diff_deposit = abs(amount - deposit_amount)
+            diff_full = abs(amount - full_amount)
+            
+            if diff_deposit <= diff_full and diff_deposit <= 1000:
+                # Đặt cọc 40%
+                required_amount = deposit_amount
+                is_deposit_payment = True
+            elif diff_full <= 1000:
+                # Thanh toán 100%
+                required_amount = full_amount
+                is_deposit_payment = False
+            else:
+                return jsonify({
+                    "message": f"Số tiền không hợp lệ. Chọn: {int(deposit_amount):,}đ (đặt cọc 40%) hoặc {int(full_amount):,}đ (thanh toán 100%)"
+                }), 400
+
+        # Kiểm tra số tiền cuối cùng
+        if abs(amount - required_amount) > 1000:
+            return jsonify({
+                "message": f"Số tiền không khớp. Cần thanh toán: {int(required_amount):,}đ"
+            }), 400
 
         new_payment = Payments(
             booking_id=booking_id,
@@ -48,7 +79,7 @@ def create_payment_service():
             status=PaymentStatusEnum.PENDING.value,
         )
         db.session.add(new_payment)
-        db.session.flush()  
+        db.session.flush()
 
         files = request.files.getlist("images")
         uploaded_images = []
@@ -64,13 +95,26 @@ def create_payment_service():
                     "error": str(e)
                 }), 400
 
-        booking.status = BookingStatusEnum.PAID.value
+        booking.paid_money = float(booking.paid_money) + amount
+        
+        if booking.status == BookingStatusEnum.DEPOSIT:
+            booking.status = BookingStatusEnum.PAID.value
+            booking.remaining_amount = 0.0
+            booking.is_full_payment = 1
+        elif is_deposit_payment:
+            booking.status = BookingStatusEnum.DEPOSIT.value
+            booking.remaining_amount = final_price_float - amount
+            booking.is_full_payment = 0
+        else:
+            booking.status = BookingStatusEnum.PAID.value
+            booking.remaining_amount = 0.0
+            booking.is_full_payment = 1
         
         db.session.commit()
 
         response_data = {
             "message": "Thanh toán thành công",
-            "payment_id": new_payment.payment_id
+            "payment_id": new_payment.payment_id,
         }
         
         if uploaded_images:
@@ -81,7 +125,7 @@ def create_payment_service():
 
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"Lỗi khi tạo thanh toán: {str(e)}")
+        current_app.logger.error(f"Lỗi khi tạo thanh toán: {str(e)}", exc_info=True)
         return jsonify({"message": "Lỗi khi tạo thanh toán", "error": str(e)}), 500
 
 # Tính mã CRC để xác thực tính toàn vẹn của dữ liệu QR, kiểm tra xem QR có hợp lệ không
@@ -158,6 +202,27 @@ def generate_qr_code_service(booking_id):
         booking = Bookings.query.get(booking_id)
         if not booking:
             return jsonify({"message": "Không tìm thấy booking"}), 404
+        
+        payment_type_param = request.args.get('payment_type', 'FULL')  # FULL or DEPOSIT
+        amount_param = request.args.get('amount')
+        
+        if booking.status == BookingStatusEnum.DEPOSIT.value:
+            # Đã đặt cọc, thanh toán phần còn lại
+            amount = int(booking.remaining_amount)
+            payment_type = "Thanh toán phần còn lại (60%)"
+        else:
+            if amount_param:
+                amount = int(float(amount_param))
+                if payment_type_param == 'DEPOSIT':
+                    payment_type = "Đặt cọc (40%)"
+                else:
+                    payment_type = "Thanh toán 100%"
+            elif payment_type_param == 'DEPOSIT':
+                amount = int(booking.final_price * 0.4)
+                payment_type = "Đặt cọc (40%)"
+            else:
+                amount = int(booking.final_price)
+                payment_type = "Thanh toán 100%"
 
         # if booking.account_id != account_id:
         #     return jsonify({"message": "Sai tài khoản"}), 403
@@ -166,7 +231,6 @@ def generate_qr_code_service(booking_id):
         bank_bin = "970422"  # MB Bank BIN code
         account_no = "88868668688668"
         account_name = "NGUYEN QUOC CUONG"
-        amount = int(booking.final_price)
         description = booking.booking_code
         
         # Tạo chuỗi QR theo chuẩn VietQR (EMVCo)
@@ -195,6 +259,7 @@ def generate_qr_code_service(booking_id):
             "message": "Tạo mã QR thành công",
             "qr_code": f"data:image/png;base64,{img_base64}",
             "qr_content": qr_content,  
+            "payment_type": payment_type,
             "bank_info": {
                 "bank_name": "MB - Ngân hàng TMCP Quân Đội",
                 "bank_bin": bank_bin,
