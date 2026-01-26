@@ -1,12 +1,16 @@
 from datetime import date, datetime
-from sqlalchemy import case, func
+from urllib import request
+from flask import jsonify
+from sqlalchemy import DECIMAL, case, desc, func
 from src.model.model_booking import Bookings, BookingStatusEnum
+from src.model.model_destination import Destinations
 from src.model.model_tour import Tours
 from src.model.model_account import Accounts, RoleEnum
 from src.model.model_review import Reviews
 from src.model.model_payment import Payments, PaymentStatusEnum
 from src.extension import db
-from src.model.model_tour_schedule import Tour_Schedules
+from src.model.model_tour_destination import Tour_Destinations
+from src.model.model_tour_schedule import ScheduleStatusEnum, Tour_Schedules
 
 #general statics
 def general_statics_service():
@@ -459,4 +463,164 @@ def get_yearly_revenue_trend_service(limit=5):
             "data": None
         }, 500
     
-#
+#static top tour by booking
+def get_top_tours_by_booking_service():
+    try:
+        limit = 5
+        success_statuses = [
+            BookingStatusEnum.CONFIRMED.value,
+            BookingStatusEnum.COMPLETED.value
+        ]
+
+        # Top tours by bookings
+        top_tours_query = db.session.query(
+            Tours.tour_id,
+            Tours.title,
+            func.count(Bookings.booking_id).label('booking_count'),
+            func.sum(Bookings.final_price).label('total_revenue')
+        ).join(Bookings, Tours.tour_id == Bookings.tour_id
+        ).filter(Bookings.status.in_(success_statuses)
+        ).group_by(Tours.tour_id, Tours.title
+        ).order_by(desc('booking_count'), desc('total_revenue')
+        ).limit(limit).all()
+
+        top_tours = [
+            {
+                'tour_id': t.tour_id,
+                'title': t.title,
+                'booking_count': t.booking_count,
+                'total_revenue': float(t.total_revenue) if t.total_revenue else 0
+            } for t in top_tours_query
+        ]
+
+        # Average passengers per tour
+        subq = db.session.query(
+            Bookings.tour_id,
+            func.sum(Bookings.num_adults + Bookings.num_children + Bookings.num_infants).label('total_passengers')
+        ).filter(Bookings.status.in_(success_statuses)
+        ).group_by(Bookings.tour_id).subquery()
+
+        avg_passengers = db.session.query(
+            func.avg(subq.c.total_passengers)
+        ).scalar() or 0.0
+
+        # Average fill rate
+        avg_fill_rate = db.session.query(
+            func.avg(
+                (func.cast(Tour_Schedules.booked_seats, DECIMAL) / Tour_Schedules.available_seats) * 100
+            )
+        ).filter(
+            Tour_Schedules.available_seats > 0,
+            Tour_Schedules.status != ScheduleStatusEnum.CANCELLED.value
+        ).scalar() or 0.0
+
+        data = {
+            'top_tours': top_tours,
+            'average_passengers_per_tour': float(avg_passengers),
+            'average_fill_rate': float(avg_fill_rate)
+        }
+
+        return jsonify({'success': True, 'data': data})
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Lỗi: {str(e)}",
+            "data": None
+        }, 500
+    
+#static top destinations and regions by booking
+def get_top_destinations_service():
+    try:
+        success_statuses = [
+            BookingStatusEnum.CONFIRMED.value,
+            BookingStatusEnum.COMPLETED.value
+        ]
+        # Top 8 destinations
+        top_destinations_query = db.session.query(
+            Destinations.destination_id,
+            Destinations.name,
+            Destinations.country,
+            Destinations.region,
+            func.count(Bookings.booking_id).label('booking_count'),
+            func.sum(Bookings.final_price).label('total_revenue')
+        ).join(
+            Tour_Destinations, Destinations.destination_id == Tour_Destinations.destination_id
+        ).join(
+            Tours, Tour_Destinations.tour_id == Tours.tour_id
+        ).join(
+            Bookings, Tours.tour_id == Bookings.tour_id
+        ).filter(
+            Bookings.status.in_(success_statuses),
+            Destinations.is_active == True
+        ).group_by(
+            Destinations.destination_id,
+            Destinations.name,
+            Destinations.country,
+            Destinations.region
+        ).order_by(
+            desc('booking_count'),
+            desc('total_revenue')
+        ).limit(8).all()
+        
+        top_destinations = [
+            {
+                'destination_id': d.destination_id,
+                'name': d.name,
+                'country': d.country,
+                'region': d.region,
+                'booking_count': d.booking_count,
+                'total_revenue': float(d.total_revenue) if d.total_revenue else 0
+            } for d in top_destinations_query
+        ]
+        
+        # Top region by bookings
+        top_regions_query = db.session.query(
+            Destinations.region,
+            func.count(Bookings.booking_id).label('booking_count'),
+            func.sum(Bookings.final_price).label('total_revenue')
+        ).join(
+            Tour_Destinations, Destinations.destination_id == Tour_Destinations.destination_id
+        ).join(
+            Tours, Tour_Destinations.tour_id == Tours.tour_id
+        ).join(
+            Bookings, Tours.tour_id == Bookings.tour_id
+        ).filter(
+            Bookings.status.in_(success_statuses),
+            Destinations.is_active == True,
+            Destinations.region.isnot(None),
+            Destinations.region != ''
+        ).group_by(
+            Destinations.region
+        ).order_by(
+            desc('booking_count'),
+            desc('total_revenue')
+        ).all()
+        
+        top_regions = [
+            {
+                'region': r.region,
+                'booking_count': r.booking_count,
+                'total_revenue': float(r.total_revenue) if r.total_revenue else 0
+            } for r in top_regions_query
+        ]
+        
+        most_popular_region = top_regions[0] if top_regions else None
+        
+        data = {
+            'top_destinations': top_destinations,
+            'top_regions': top_regions,
+            'most_popular_region': most_popular_region
+        }
+        
+        return {
+            "success": True,
+            "message": "Lấy thống kê điểm đến thành công",
+            "data": data
+        }, 200
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Lỗi: {str(e)}",
+            "data": None
+        }, 500

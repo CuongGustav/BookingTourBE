@@ -3,7 +3,8 @@ from flask_jwt_extended import jwt_required
 from src.common.decorators import require_role
 from src.statics.services import (general_statics_service, get_daily_revenue_trend_service, get_monthly_revenue_trend_service, 
                                   get_revenue_by_date_range_service, get_revenue_by_day_service, get_revenue_by_month_service, 
-                                  get_revenue_by_year_service, get_yearly_revenue_trend_service)
+                                  get_revenue_by_year_service, get_top_destinations_service, get_yearly_revenue_trend_service, 
+                                  get_top_tours_by_booking_service)
 
 statics = Blueprint("statics", __name__)
 
@@ -117,3 +118,15 @@ def monthly_revenue_trend():
 @require_role('qcadmin')
 def yearly_revenue_trend():
     return get_yearly_revenue_trend_service()
+
+@statics.route("/admin/tours/top", methods=["GET"])
+@jwt_required()
+@require_role('qcadmin')
+def get_top_tours_by_booking():
+    return get_top_tours_by_booking_service()
+
+@statics.route("/admin/destinations/top", methods=["GET"])
+@jwt_required()
+@require_role('qcadmin')
+def get_top_destinations():
+    return get_top_destinations_service()
