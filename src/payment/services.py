@@ -4,6 +4,7 @@ from src.extension import db
 from src.model.model_payment import Payments, PaymentMethodEnum, PaymentStatusEnum
 from src.model.model_booking import Bookings, BookingStatusEnum
 from datetime import datetime
+from src.model.model_tour_schedule import ScheduleStatusEnum, Tour_Schedules
 from src.payment_images.services import create_payment_image
 import qrcode
 import io
@@ -193,7 +194,6 @@ def build_vietqr_string(bank_bin, account_no, amount, description):
     
     return qr_string
 
-
 # Generate QR Code service
 def generate_qr_code_service(booking_id):
     try:
@@ -288,12 +288,16 @@ def get_all_payment_admin_service():
 def create_payment_admin_service():
     try:
         data = request.form
+
         booking_id = data.get("booking_id")
         payment_method = data.get("payment_method")
         amount = data.get("amount")
+        is_full_payment = data.get("is_full_payment", "false")  
 
         if not all([booking_id, payment_method, amount]):
-            return jsonify({"message": "Thiếu thông tin: booking_id, payment_method, amount"}), 400
+            return jsonify({
+                "message": "Thiếu thông tin: booking_id, payment_method, amount"
+            }), 400
 
         try:
             amount = float(amount)
@@ -302,6 +306,8 @@ def create_payment_admin_service():
 
         if payment_method not in [e.value for e in PaymentMethodEnum]:
             return jsonify({"message": "Phương thức thanh toán không hợp lệ"}), 400
+
+        is_full_payment = True if is_full_payment.lower() == "true" else False
 
         booking = Bookings.query.get(booking_id)
         if not booking:
@@ -313,15 +319,19 @@ def create_payment_admin_service():
             amount=amount,
             status=PaymentStatusEnum.COMPLETED.value,
         )
+
         db.session.add(new_payment)
         db.session.flush()
 
         files = request.files.getlist("images")
         uploaded_images = []
-        
+
         if files and len(files) > 0 and files[0].filename != '':
             try:
-                uploaded_images = create_payment_image(new_payment.payment_id, files)
+                uploaded_images = create_payment_image(
+                    new_payment.payment_id,
+                    files
+                )
             except Exception as e:
                 db.session.rollback()
                 current_app.logger.error(f"Upload ảnh thất bại: {str(e)}")
@@ -330,26 +340,40 @@ def create_payment_admin_service():
                     "error": str(e)
                 }), 400
 
+
+        if booking.paid_money is None:
+            booking.paid_money = 0
+
+        booking.paid_money =  float(booking.paid_money) + amount
+
+        booking.is_full_payment = is_full_payment
+
         booking.status = BookingStatusEnum.CONFIRMED.value
-        
-        from src.model.model_tour_schedule import Tour_Schedules
+
         schedule = Tour_Schedules.query.get(booking.schedule_id)
+
         if schedule:
-            total_passengers = booking.num_adults + booking.num_children + booking.num_infants
+            total_passengers = (
+                booking.num_adults +
+                booking.num_children +
+                booking.num_infants
+            )
+
             schedule.booked_seats += total_passengers
-            
+
             if schedule.booked_seats >= schedule.available_seats:
-                from src.model.model_tour_schedule import ScheduleStatusEnum
                 schedule.status = ScheduleStatusEnum.FULL.value
-        
+
         db.session.commit()
 
         response_data = {
             "message": "Tạo thanh toán thành công",
             "payment_id": new_payment.payment_id,
-            "booking_code": booking.booking_code
+            "booking_code": booking.booking_code,
+            "is_full_payment": booking.is_full_payment,
+            "paid_money": booking.paid_money
         }
-        
+
         if uploaded_images:
             response_data["uploaded_images"] = uploaded_images
             response_data["total_images"] = len(uploaded_images)
@@ -359,7 +383,10 @@ def create_payment_admin_service():
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Lỗi khi tạo thanh toán (admin): {str(e)}")
-        return jsonify({"message": "Lỗi khi tạo thanh toán", "error": str(e)}), 500
+        return jsonify({
+            "message": "Lỗi khi tạo thanh toán",
+            "error": str(e)
+        }), 500
     
 def calculate_refund_amount(booking, payment_amount):
     try:
@@ -378,10 +405,22 @@ def calculate_refund_amount(booking, payment_amount):
         days_before_departure = (departure_datetime - cancellation_date).days
         
 
-        if days_before_departure < 7:
-            refund_percentage = 30
+        is_deposit = not bool(booking.is_full_payment)
+        
+        if is_deposit:
+            # Logic hoàn tiền cho deposit
+            if days_before_departure >= 7:
+                refund_percentage = 70
+            elif days_before_departure >= 4:
+                refund_percentage = 30
+            else:
+                refund_percentage = 0
         else:
-            refund_percentage = 70
+            # Logic hoàn tiền cho thanh toán đầy đủ
+            if days_before_departure < 7:
+                refund_percentage = 30
+            else:
+                refund_percentage = 70
         
         refund_amount = float(payment_amount) * (refund_percentage / 100)
         
@@ -408,7 +447,7 @@ def read_payment_detail_admin_service(payment_id):
         if payment.booking:
             payment_data['cancellation_reason'] = payment.booking.cancellation_reason
             
-            if payment.booking.status in [BookingStatusEnum.CANCELLED, BookingStatusEnum.CANCEL_PENDING]:
+            if payment.booking.status in [BookingStatusEnum.CANCELLED, BookingStatusEnum.CANCEL_PENDING, BookingStatusEnum.CONFIRMED]:
                 refund_info = calculate_refund_amount(payment.booking, payment.amount)
                 if refund_info:
                     payment_data['refund_info'] = refund_info
