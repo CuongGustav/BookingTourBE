@@ -31,6 +31,7 @@ class ReadBookingUserSchema(ma.SQLAlchemySchema):
     created_at = ma.auto_field()
     special_request = ma.auto_field()
     tour_title = ma_fields.Function(lambda obj: obj.tour.title if obj.tour else None)
+    depart_date = ma_fields.Function(lambda obj: obj.schedule.departure_date if obj.schedule else None)
     passengers = ma_fields.Nested(ReadBookingPassengerSchema, many=True)
 
 read_one_booking_user_schema = ReadBookingUserSchema()

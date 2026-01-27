@@ -39,8 +39,19 @@ class ReadPaymentDetailAdminSchema(ma.SQLAlchemySchema):
     
     booking_code = ma_fields.Method("get_booking_code")
     payment_images = ma_fields.Nested(PaymentImagesSchema, many=True)
+    money_paid = ma_fields.Method("get_paid_money")
+    status_booking = ma_fields.Method("get_status_booking")
     
     def get_booking_code(self, obj):
         return obj.booking.booking_code if obj.booking else None
+    
+    def get_paid_money(self, obj):
+        return float(obj.booking.paid_money) if obj.booking else 0
+    
+    def get_status_booking(self, obj):
+        if obj.booking:
+            status = obj.booking.status
+            return status.value.upper() if hasattr(status, 'value') else str(status)
+        return None
 
 readPaymentDetailAdmin_schema = ReadPaymentDetailAdminSchema()

@@ -4,7 +4,8 @@ from src.booking.services import (create_booking_service, get_bookings_user_serv
                                   update_booking_service, get_all_booking_admin_service, read_booking_detail_admin_service, 
                                   cancel_booking_pending_admin_service, cancel_booking_paid_admin_service, confirm_booking_paid_admin_service,
                                   cancel_booking_confirmed_user_service, cancel_booking_confirm_and_refund_payment_admin_service,
-                                  confirm_booking_cancel_pending_and_refund_payment_admin_service, cancel_booking_cancel_pending_admin_service)
+                                  confirm_booking_cancel_pending_and_refund_payment_admin_service, cancel_booking_cancel_pending_admin_service,
+                                  cancel_booking_deposit_admin_service, confirm_booking_deposit_admin_service)
 from src.common.decorators import require_role
 from src.update_status_completed_booking import update_completed_bookings
 
@@ -97,6 +98,20 @@ def confirm_booking_cancel_pending_and_refund_payment_admin(booking_id):
 @require_role("qcadmin")
 def cancel_booking_cancel_pending_admin(booking_id):
     return cancel_booking_cancel_pending_admin_service(booking_id)
+
+#cancel booking deposit admin
+@booking.route("/admin/cancel-booking-deposit/<booking_id>", methods=["PUT"])
+@jwt_required()
+@require_role("qcadmin")
+def cancel_booking_deposit_admin(booking_id):
+    return cancel_booking_deposit_admin_service(booking_id)
+
+#confirm booking deposit admin
+@booking.route("/admin/confirm-booking-deposit/<booking_id>", methods=["PUT"])
+@jwt_required()
+@require_role("qcadmin")
+def confirm_booking_deposit_admin(booking_id):
+    return confirm_booking_deposit_admin_service(booking_id)
 
 #update status completed booking
 @booking.route("/admin/test-complete-bookings", methods=["POST"])

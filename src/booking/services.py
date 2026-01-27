@@ -10,7 +10,7 @@ from src.model.model_review import Reviews
 from src.model.model_tour import Tours
 from src.model.model_coupon import Coupons, DiscountTypeEnum
 from src.booking_passengers.services import create_booking_passenger_service, update_booking_passengers_service
-from src.model.model_tour_schedule import Tour_Schedules
+from src.model.model_tour_schedule import ScheduleStatusEnum, Tour_Schedules
 from src.marshmallow.library_ma_booking import read_booking_user_schema, read_one_booking_user_schema
 from src.payment.services import calculate_refund_amount
 from src.payment_images.services import create_payment_image
@@ -801,3 +801,115 @@ def cancel_booking_cancel_pending_admin_service(booking_id):
         db.session.rollback()
         current_app.logger.error(f"Lỗi từ chối hủy booking: {str(e)}", exc_info=True)
         return jsonify({"message": "Từ chối hủy booking thất bại", "error": str(e)}), 500
+
+#cancel booking deposit admin
+def cancel_booking_deposit_admin_service(booking_id):
+    try:
+        data = request.get_json() or {} 
+        reason = data.get("cancellation_reason", "Admin hủy booking")
+        
+        if not booking_id:
+            return jsonify({"message":"Không có booking_id"}), 400
+        
+        booking = Bookings.query.filter_by(booking_id=booking_id).first()
+        if not booking:
+            return jsonify({"message": "Booking không tồn tại"}), 404
+        
+        if booking.status == BookingStatusEnum.CANCELLED:
+            return jsonify({"message": "Đơn hàng này đã được hủy trước đó"}), 400
+        
+        if booking.status == BookingStatusEnum.COMPLETED:
+            return jsonify({"message": "Không thể hủy đơn hàng đã hoàn thành"}), 400
+        
+        if booking.status != BookingStatusEnum.DEPOSIT:
+            return jsonify({"message": "Chỉ có thể hủy booking ở trạng thái deposit"}), 400
+        
+        # Tìm payment tương ứng với booking
+        from src.model.model_payment import Payments, PaymentStatusEnum
+        payment = Payments.query.filter_by(booking_id=booking_id).first()
+        
+        if not payment:
+            return jsonify({"message": "Không tìm thấy thanh toán cho booking này"}), 404
+        
+        booking.status = BookingStatusEnum.CANCELLED
+        booking.cancelled_at = datetime.now()
+        booking.cancellation_reason = reason
+        
+        payment.status = PaymentStatusEnum.FAILED
+    
+        db.session.commit()
+
+        return jsonify({
+            "message": "Hủy đơn đặt tour đã thanh toán thành công",
+            "booking_id": booking_id,
+            "booking_code": booking.booking_code
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Lỗi hủy booking paid: {str(e)}", exc_info=True)
+        return jsonify({"message": "Hủy đơn đặt tour thất bại", "error": str(e)}), 500
+    
+#confirm booking deposit admin
+def confirm_booking_deposit_admin_service(booking_id):
+    try:
+        if not booking_id:
+            return jsonify({"message": "Không có booking_id"}), 400
+        
+        booking = Bookings.query.filter_by(booking_id=booking_id).first()
+        if not booking:
+            return jsonify({"message": "Booking không tồn tại"}), 404
+        
+        if booking.status == BookingStatusEnum.CONFIRMED:
+            return jsonify({"message": "Đơn hàng này đã được xác nhận trước đó"}), 400
+        
+        if booking.status == BookingStatusEnum.CANCELLED:
+            return jsonify({"message": "Không thể xác nhận đơn hàng đã hủy"}), 400
+        
+        if booking.status == BookingStatusEnum.COMPLETED:
+            return jsonify({"message": "Đơn hàng đã hoàn thành"}), 400
+        
+        if booking.status != BookingStatusEnum.DEPOSIT:
+            return jsonify({"message": "Chỉ có thể xác nhận booking ở trạng thái DEPOSIT"}), 400
+        
+        payment = Payments.query.filter_by(booking_id=booking_id).first()
+        if not payment:
+            return jsonify({"message": "Không tìm thấy thanh toán (deposit) cho booking này"}), 404
+        
+        if payment.status != PaymentStatusEnum.PENDING:
+            return jsonify({"message": "Thanh toán deposit không ở trạng thái chờ xác nhận"}), 400
+        
+        schedule = Tour_Schedules.query.get(booking.schedule_id)
+        if not schedule:
+            return jsonify({"message": "Không tìm thấy lịch trình"}), 404
+        
+        total_passengers = booking.num_adults + booking.num_children + booking.num_infants
+        
+        if schedule.booked_seats + total_passengers > schedule.available_seats:
+            return jsonify({"message": "Không đủ chỗ trống trong lịch trình"}), 400
+        
+        booking.status = BookingStatusEnum.CONFIRMED.value
+        payment.status = PaymentStatusEnum.COMPLETED.value
+        
+        schedule.booked_seats += total_passengers
+        
+        if schedule.booked_seats >= schedule.available_seats:
+            schedule.status = ScheduleStatusEnum.FULL.value
+        
+        db.session.commit()
+
+        return jsonify({
+            "message": "Xác nhận deposit booking thành công",
+            "booking_id": booking_id,
+            "booking_code": booking.booking_code,
+            "paid_money": float(booking.paid_money),
+            "remaining_amount": float(booking.remaining_amount)
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Lỗi xác nhận deposit booking: {str(e)}", exc_info=True)
+        return jsonify({
+            "message": "Xác nhận deposit booking thất bại",
+            "error": str(e)
+        }), 500
