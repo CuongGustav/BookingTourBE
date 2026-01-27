@@ -251,20 +251,27 @@ def logout_account_service():
     exp_timestamp = jwt_data["exp"]
     seconds_until_exp = int(exp_timestamp - datetime.now(timezone.utc).timestamp())
 
-    redis_blocklist.setex(jti, seconds_until_exp, "revoked")
-    refresh_token = request.cookies.get("refresh_token")
-    if refresh_token:
+    if redis_blocklist:
         try:
-            decoded_refresh = get_jwt(refresh_token)
-            jti_refresh = decoded_refresh["jti"]
-            exp_refresh = decoded_refresh["exp"]
-            seconds_refresh = int(exp_refresh - datetime.utcnow().timestamp())
-            redis_blocklist.setex(jti_refresh, seconds_refresh, "revoked")
-        except Exception:
-            pass
+            redis_blocklist.setex(jti, seconds_until_exp, "revoked")
+            refresh_token = request.cookies.get("refresh_token_cookie")  
+            if refresh_token:
+                try:
+                    from flask_jwt_extended import decode_token
+                    decoded_refresh = decode_token(refresh_token)
+                    jti_refresh = decoded_refresh["jti"]
+                    exp_refresh = decoded_refresh["exp"]
+                    seconds_refresh = int(exp_refresh - datetime.now(timezone.utc).timestamp())
+                    redis_blocklist.setex(jti_refresh, seconds_refresh, "revoked")
+                except Exception as e:
+                    print(f"Error revoking refresh token: {e}")
+        except Exception as e:
+            print(f"Redis error during logout: {e}")
+    else:
+        print("Warning: Redis not available, token not revoked")
 
     resp = make_response(jsonify({"message": "Đăng xuất thành công"}))
-    unset_jwt_cookies(resp)  # Delete cookie access + refresh
+    unset_jwt_cookies(resp)
 
     return resp, 200
 
