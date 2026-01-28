@@ -21,6 +21,7 @@ def create_booking():
 def get_bookings_user():
     return get_bookings_user_service()
 
+#read booking user
 @booking.route("/<string:booking_id>", methods=["GET"]) 
 @jwt_required()
 def get_booking_by_id(booking_id):

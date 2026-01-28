@@ -703,16 +703,13 @@ def confirm_booking_cancel_pending_and_refund_payment_admin_service(booking_id):
         payment_method = data.get("payment_method")
         amount = data.get("amount")
 
-        if not all([cancellation_reason, payment_method, amount]):
+        if (cancellation_reason is None or cancellation_reason == "" or
+            payment_method is None or payment_method == "" or
+            amount is None or amount == ""):
             return jsonify({"message": "Thiếu dữ liệu"}), 400
         
-        try:
-            refund_amount = float(amount)
-            if refund_amount <= 0:
-                return jsonify({"message": "Số tiền hoàn trả phải lớn hơn 0"}), 400
-        except ValueError:
-            return jsonify({"message": "Số tiền không hợp lệ"}), 400
-
+        refund_amount = float(amount)
+            
         booking = Bookings.query.get(booking_id)
         if not booking:
             return jsonify({"message": "Không tìm thấy booking"}), 404
@@ -875,9 +872,6 @@ def confirm_booking_deposit_admin_service(booking_id):
         payment = Payments.query.filter_by(booking_id=booking_id).first()
         if not payment:
             return jsonify({"message": "Không tìm thấy thanh toán (deposit) cho booking này"}), 404
-        
-        if payment.status != PaymentStatusEnum.PENDING:
-            return jsonify({"message": "Thanh toán deposit không ở trạng thái chờ xác nhận"}), 400
         
         schedule = Tour_Schedules.query.get(booking.schedule_id)
         if not schedule:

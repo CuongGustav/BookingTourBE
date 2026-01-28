@@ -626,3 +626,105 @@ def create_payment_remaining_admin_service():
             "message": "Lỗi khi tạo thanh toán phần còn lại",
             "error": str(e)
         }), 500 
+
+#create payment remaining user
+def create_payment_remaining_user_service():
+    try:
+        data = request.form
+
+        booking_id = data.get("booking_id")
+        payment_method = data.get("payment_method")
+        amount_str = data.get("amount")
+
+        if not all([booking_id, payment_method, amount_str]):
+            return jsonify({
+                "message": "Thiếu thông tin: booking_id, payment_method, amount"
+            }), 400
+
+        try:
+            amount = float(amount_str)
+            if amount <= 0:
+                return jsonify({"message": "Số tiền phải lớn hơn 0"}), 400
+        except ValueError:
+            return jsonify({"message": "Số tiền không hợp lệ"}), 400
+
+        if payment_method not in [e.value for e in PaymentMethodEnum]:
+            return jsonify({"message": "Phương thức thanh toán không hợp lệ"}), 400
+
+        booking = Bookings.query.get(booking_id)
+        if not booking:
+            return jsonify({"message": "Không tìm thấy booking"}), 404
+
+        if booking.is_full_payment:
+            return jsonify({
+                "message": "Booking đã thanh toán đầy đủ"
+            }), 400
+
+        remaining = float(booking.remaining_amount or 0)
+        current_paid = float(booking.paid_money or 0)
+        final_price = float(booking.final_price)
+
+        if remaining <= 0:
+            remaining = final_price - current_paid
+
+        if remaining <= 0:
+            return jsonify({
+                "message": "Booking đã thanh toán đủ, không thể gửi thêm"
+            }), 400
+
+        if abs(amount - remaining) > 1000:
+            return jsonify({
+                "message": f"Số tiền không hợp lệ. Phần còn lại: {int(remaining):,}đ"
+            }), 400
+
+        new_payment = Payments(
+            booking_id=booking_id,
+            payment_method=payment_method,
+            amount=amount,
+            status=PaymentStatusEnum.BONUS.value  
+        )
+
+        db.session.add(new_payment)
+        db.session.flush()
+
+        files = request.files.getlist("images")
+        uploaded_images = []
+
+        if files and len(files) > 0 and files[0].filename != '':
+            try:
+                uploaded_images = create_payment_image(
+                    new_payment.payment_id,
+                    files
+                )
+            except Exception as e:
+                db.session.rollback()
+                current_app.logger.error(f"Upload ảnh thất bại: {str(e)}")
+                return jsonify({
+                    "message": "Upload ảnh thất bại",
+                    "error": str(e)
+                }), 400
+            
+        booking.is_bonus = True
+        db.session.add(booking)
+
+        db.session.commit()
+
+        response_data = {
+            "message": "Đã gửi yêu cầu thanh toán, đang chờ xác nhận",
+            "payment_id": new_payment.payment_id,
+            "status": PaymentStatusEnum.BONUS.value
+        }
+
+        if uploaded_images:
+            response_data["uploaded_images"] = uploaded_images
+            response_data["total_images"] = len(uploaded_images)
+
+        return jsonify(response_data), 201
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Lỗi tạo payment remaining user: {str(e)}")
+        return jsonify({
+            "message": "Lỗi khi gửi yêu cầu thanh toán",
+            "error": str(e)
+        }), 500

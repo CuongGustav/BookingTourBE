@@ -15,6 +15,7 @@ class PaymentStatusEnum(PyEnum):
     COMPLETED = "completed"
     FAILED = "failed"
     REFUNDED = "refunded"
+    BONUS = "bonus"
 
 
 class Payments(db.Model):

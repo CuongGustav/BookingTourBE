@@ -32,6 +32,7 @@ class Bookings(db.Model):
     final_price = Column(DECIMAL(10,2), nullable=False)
     paid_money = Column(DECIMAL(10,2), nullable=False)
     is_full_payment = Column(Boolean, default=False)
+    is_bonus = Column(Boolean, default=False)
     remaining_amount = Column(DECIMAL(10,2), default=0)
     contact_name = Column(String(255), nullable=False)
     contact_email = Column(String(255), nullable=False)
@@ -61,7 +62,7 @@ class Bookings(db.Model):
     def __init__(self, booking_code, account_id, tour_id, schedule_id,
                  total_price, final_price, contact_name, contact_email, contact_phone, contact_address,
                  num_adults=1, num_children=0, num_infants=0, remaining_amount=0, is_full_payment=False,
-                 coupon_id=None, discount_amount=0, special_request=None, paid_money=0,
+                 coupon_id=None, discount_amount=0, special_request=None, paid_money=0, is_bonus=False,
                  status=BookingStatusEnum.PENDING.value, cancellation_reason=None, cancelled_at=None):
         self.booking_id = str(uuid.uuid4())
         self.booking_code = booking_code
@@ -86,3 +87,4 @@ class Bookings(db.Model):
         self.paid_money = paid_money
         self.remaining_amount = remaining_amount
         self.is_full_payment = is_full_payment
+        self.is_bonus = is_bonus
