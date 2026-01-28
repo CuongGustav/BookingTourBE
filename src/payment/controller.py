@@ -2,7 +2,8 @@ from flask import Blueprint
 from flask_jwt_extended import jwt_required
 from src.common.decorators import require_role
 from src.payment.services import (create_payment_service, generate_qr_code_service, get_all_payment_admin_service, 
-                                  create_payment_admin_service, read_payment_detail_admin_service, read_payment_detail_admin_by_booking_id_service)
+                                  create_payment_admin_service, read_payment_detail_admin_service, 
+                                  read_payment_detail_admin_by_booking_id_service, create_payment_remaining_admin_service)
 
 payment = Blueprint("payment", __name__)
 
@@ -39,3 +40,9 @@ def read_payment_detail_admin(payment_id):
 @require_role("qcadmin")
 def read_payment_detail_admin_by_booking_id(booking_id):
     return read_payment_detail_admin_by_booking_id_service(booking_id)
+
+@payment.route("/admin/create-remaining", methods=["POST"])
+@jwt_required()
+@require_role("qcadmin")
+def create_payment_remaining_admin():
+    return create_payment_remaining_admin_service()

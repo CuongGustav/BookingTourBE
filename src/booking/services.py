@@ -107,7 +107,7 @@ def create_booking_service():
                 discount_amount = total_price * (coupon.discount_value / 100)
             elif coupon.discount_type == "fixed":
                 discount_amount = coupon.discount_value
-            if coupon.max_discount_amount and discount_amount > coupon.max_discoun_amount:
+            if coupon.max_discount_amount and discount_amount > coupon.max_discount_amount:
                 discount_amount = coupon.max_discount_amount
 
         final_price = total_price - discount_amount
