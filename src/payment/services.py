@@ -728,3 +728,55 @@ def create_payment_remaining_user_service():
             "message": "Lỗi khi gửi yêu cầu thanh toán",
             "error": str(e)
         }), 500
+
+#confirm payment bonus admin
+def confirm_payment_bonus_admin_service(payment_id):
+    try:
+        payment = Payments.query.get(payment_id)
+        if not payment:
+            return jsonify({"message": "Không tìm thấy payment"}), 404
+
+        if payment.status != PaymentStatusEnum.BONUS:
+            return jsonify({
+                "message": "Payment này không ở trạng thái chờ xác nhận (BONUS)"
+            }), 400
+
+        booking = Bookings.query.get(payment.booking_id)
+        if not booking:
+            return jsonify({"message": "Không tìm thấy booking"}), 404
+
+        if booking.is_full_payment:
+            return jsonify({
+                "message": "Booking đã thanh toán đủ, không thể xác nhận lại"
+            }), 400
+
+        amount = float(payment.amount)
+        
+        payment.status = PaymentStatusEnum.COMPLETED.value
+
+        current_paid = float(booking.paid_money or 0)
+        booking.paid_money = current_paid + amount
+        booking.remaining_amount = 0
+        booking.is_full_payment = True
+        booking.is_bonus = False
+
+        db.session.add(payment)
+        db.session.add(booking)
+
+        db.session.commit()
+
+        return jsonify({
+            "message": "Xác nhận thanh toán phần còn lại thành công",
+            "payment_id": payment.payment_id,
+            "booking_id": booking.booking_id,
+            "paid_money": float(booking.paid_money),
+            "is_full_payment": booking.is_full_payment
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Lỗi confirm payment bonus admin: {str(e)}")
+        return jsonify({
+            "message": "Lỗi khi xác nhận thanh toán",
+            "error": str(e)
+        }), 500
