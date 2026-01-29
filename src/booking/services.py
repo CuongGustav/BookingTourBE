@@ -5,6 +5,7 @@ from flask_jwt_extended import get_jwt_identity
 from src.extension import db
 from sqlalchemy.orm import joinedload
 from src.model.model_booking import Bookings, BookingStatusEnum
+from src.model.model_booking_passenger import BookingPassengers
 from src.model.model_payment import PaymentStatusEnum, Payments
 from src.model.model_review import Reviews
 from src.model.model_tour import Tours
@@ -81,6 +82,38 @@ def create_booking_service():
             actual_children != num_children or
             actual_infants != num_infants):
             return jsonify({"message": "Số lượng hành khách không khớp"}), 400
+        
+        ACTIVE_STATUS = [
+            BookingStatusEnum.PENDING.value,
+            BookingStatusEnum.PAID.value,
+            BookingStatusEnum.CONFIRMED.value,
+            BookingStatusEnum.DEPOSIT.value
+        ]
+
+        for p in passengers:
+            if p.get("passenger_type", "").lower() == "adult":
+
+                p_id_number = p.get("id_number")
+
+                if p_id_number:
+                    # normalize CCCD
+                    p_id_number = p_id_number.strip().replace(" ", "").replace(".", "")
+                    conflict = (
+                        db.session.query(BookingPassengers)
+                        .join(Bookings, BookingPassengers.booking_id == Bookings.booking_id)
+                        .join(Tour_Schedules, Bookings.schedule_id == Tour_Schedules.schedule_id)
+                        .filter(
+                            BookingPassengers.id_number == p_id_number,
+                            Bookings.status.in_(ACTIVE_STATUS),
+                            # from booking created -> tour return
+                            Bookings.created_at <= schedule.return_date
+                        )
+                        .first()
+                    )
+                    if conflict:
+                        return jsonify({
+                            "message": f"CCCD {p_id_number} đã được dùng cho booking {conflict.booking.booking_code} và chưa kết thúc tour."
+                        }), 400
 
         #total_price
         total_price = (
@@ -334,6 +367,46 @@ def update_booking_service():
                     return jsonify({"message": "Định dạng ngày sinh không hợp lệ"}), 400
                 if p.get("gender") not in valid_genders:
                     return jsonify({"message": "Giới tính không hợp lệ"}), 400
+                
+            adults_only = [p for p in passengers_data if p.get("passenger_type", "").lower() == "adult"]
+            
+            # check id_number conflict
+            ACTIVE_STATUS = [
+                BookingStatusEnum.PENDING.value,
+                BookingStatusEnum.PAID.value,
+                BookingStatusEnum.CONFIRMED.value,
+                BookingStatusEnum.DEPOSIT.value
+            ]
+
+            for p in adults_only:
+
+                p_id_number = p.get("id_number")
+
+                if p_id_number:
+                    p_id_number = p_id_number.strip().replace(" ", "").replace(".", "")
+
+                    conflict = (
+                        db.session.query(BookingPassengers)
+                        .join(Bookings, BookingPassengers.booking_id == Bookings.booking_id)
+                        .join(Tour_Schedules, Bookings.schedule_id == Tour_Schedules.schedule_id)
+                        .filter(
+                            BookingPassengers.id_number == p_id_number,
+
+                            # loại trừ booking đang update
+                            Bookings.booking_id != booking_id,
+
+                            Bookings.status.in_(ACTIVE_STATUS),
+
+                            # from booking created -> tour return
+                            Bookings.created_at <= schedule.return_date
+                        )
+                        .first()
+                    )
+
+                    if conflict:
+                        return jsonify({
+                            "message": f"Cập nhật thất bại: CCCD {p_id_number} đang được dùng cho booking {conflict.booking.booking_code}"
+                        }), 400
 
             update_result = update_booking_passengers_service(booking_id, passengers_data, num_adults, num_children, num_infants)
             
