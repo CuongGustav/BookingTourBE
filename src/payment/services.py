@@ -780,3 +780,43 @@ def confirm_payment_bonus_admin_service(payment_id):
             "message": "Lỗi khi xác nhận thanh toán",
             "error": str(e)
         }), 500
+
+#cancel payment bonus admin
+def cancel_payment_bonus_admin_service(payment_id):
+    try:
+        payment = Payments.query.get(payment_id)
+
+        if not payment:
+            return jsonify({"message": "Không tìm thấy payment"}), 404
+
+        if payment.status != PaymentStatusEnum.BONUS:
+            return jsonify({
+                "message": "Chỉ có thể huỷ payment đang ở trạng thái BONUS"
+            }), 400
+
+        booking = Bookings.query.get(payment.booking_id)
+
+        if not booking:
+            return jsonify({"message": "Không tìm thấy booking"}), 404
+
+        payment.status = PaymentStatusEnum.FAILED.value
+
+        booking.is_bonus = False
+
+        db.session.add(payment)
+        db.session.add(booking)
+
+        db.session.commit()
+
+        return jsonify({
+            "message": "Huỷ yêu cầu thanh toán phần còn lại thành công",
+            "payment_id": payment.payment_id,
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Lỗi cancel payment bonus admin: {str(e)}")
+        return jsonify({
+            "message": "Lỗi khi huỷ payment bonus",
+            "error": str(e)
+        }), 500

@@ -4,7 +4,8 @@ from src.common.decorators import require_role
 from src.payment.services import (create_payment_service, generate_qr_code_service, get_all_payment_admin_service, 
                                   create_payment_admin_service, read_payment_detail_admin_service, 
                                   read_payment_detail_admin_by_booking_id_service, create_payment_remaining_admin_service,
-                                  create_payment_remaining_user_service, confirm_payment_bonus_admin_service)
+                                  create_payment_remaining_user_service, confirm_payment_bonus_admin_service, 
+                                  cancel_payment_bonus_admin_service)
 
 payment = Blueprint("payment", __name__)
 
@@ -58,3 +59,9 @@ def create_payment_remaining_user():
 @require_role("qcadmin")
 def confirm_payment_bonus_admin(payment_id):
     return confirm_payment_bonus_admin_service(payment_id)
+
+@payment.route("/admin/cancel-payment-bonus/<payment_id>", methods=["PUT"])
+@jwt_required()
+@require_role("qcadmin")
+def cancel_payment_bonus_admin(payment_id):
+    return cancel_payment_bonus_admin_service(payment_id)

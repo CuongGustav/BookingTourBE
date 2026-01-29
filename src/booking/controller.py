@@ -7,7 +7,7 @@ from src.booking.services import (create_booking_service, get_bookings_user_serv
                                   confirm_booking_cancel_pending_and_refund_payment_admin_service, cancel_booking_cancel_pending_admin_service,
                                   cancel_booking_deposit_admin_service, confirm_booking_deposit_admin_service)
 from src.common.decorators import require_role
-from src.update_status_completed_booking import update_completed_bookings
+from src.scheduler import update_completed_bookings
 
 booking = Blueprint("booking", __name__)
 
