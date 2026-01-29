@@ -300,60 +300,63 @@ def get_revenue_by_date_range_service(start_date_str, end_date_str):
         }, 500
 
 #get revenue all day in month
-def get_daily_revenue_trend_service(year, month):
+from datetime import datetime, date
+import calendar
+from flask import jsonify
+from sqlalchemy import func
+from src.extension import db
+from src.model.model_payment import Payments, PaymentStatusEnum
+
+def get_daily_revenue_trend_service(year: int, month: int):
     try:
-        results = db.session.query(
-            func.date(Payments.created_at).label('date'),
-            func.sum(
-                case(
-                    (Payments.status == PaymentStatusEnum.COMPLETED.value, Payments.amount),
-                    else_=0
-                )
-            ).label('completed'),
-            func.sum(
-                case(
-                    (Payments.status == PaymentStatusEnum.REFUNDED.value, Payments.amount),
-                    else_=0
-                )
-            ).label('refunded')
-        ).filter(
-            func.extract('year', Payments.created_at) == year,
-            func.extract('month', Payments.created_at) == month
-        ).group_by(
-            func.date(Payments.created_at)
-        ).order_by(
-            func.date(Payments.created_at)
-        ).all()
+        _, num_days = calendar.monthrange(year, month)
         
-        data = []
-        for row in results:
-            completed = float(row.completed or 0)
-            refunded = float(row.refunded or 0)
-            net_revenue = completed - refunded
+        results = []
+        success_statuses = [PaymentStatusEnum.COMPLETED.value] 
+        refunded_statuses = [PaymentStatusEnum.REFUNDED.value]  
+        
+        for day in range(1, num_days + 1):
+            current_date = date(year, month, day)
             
-            data.append({
-                "date": str(row.date),
-                "period_label": row.date.strftime("%d/%m"),
-                "completed": round(completed, 2),
-                "refunded": round(refunded, 2),
-                "net_revenue": round(net_revenue, 2)
+            completed_query = db.session.query(
+                func.coalesce(func.sum(Payments.amount), 0)
+            ).filter(
+                func.date(Payments.created_at) == current_date, 
+                Payments.status == PaymentStatusEnum.COMPLETED.value
+            ).scalar() or 0
+            
+            refunded_query = db.session.query(
+                func.coalesce(func.sum(Payments.amount), 0)
+            ).filter(
+                func.date(Payments.created_at) == current_date,
+                Payments.status == PaymentStatusEnum.REFUNDED.value
+            ).scalar() or 0
+            
+            net_revenue = float(completed_query) - float(refunded_query)
+            
+            results.append({
+                "date": current_date.isoformat(),
+                "period_label": f"{day:02d}/{month:02d}",
+                "completed": float(completed_query),
+                "refunded": float(refunded_query),
+                "net_revenue": net_revenue
             })
         
         return {
             "success": True,
-            "message": "Lấy xu hướng doanh thu theo ngày thành công",
+            "message": "Lấy xu hướng doanh thu hàng ngày thành công",
             "data": {
                 "period_type": "daily",
                 "year": year,
                 "month": month,
-                "results": data
+                "results": results
             }
         }, 200
-        
+    
     except Exception as e:
         return {
             "success": False,
-            "message": f"Lỗi: {str(e)}",
+            "message": f"Lỗi khi lấy xu hướng doanh thu hàng ngày: {str(e)}",
             "data": None
         }, 500
 
