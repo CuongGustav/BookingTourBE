@@ -103,8 +103,8 @@ def init_scheduler(app):
         scheduler.add_job(
             func=lambda: auto_cancel_unpaid_bookings(app),  
             trigger="cron",
-            hour=12,
-            minute=20,
+            hour=0,
+            minute=1,
             timezone=vietnam_tz,
             id="auto_cancel_unpaid_bookings",
             name="Tự động hủy booking chưa thanh toán đủ",
@@ -114,8 +114,8 @@ def init_scheduler(app):
         scheduler.add_job(
             func=lambda: update_completed_bookings(app),  
             trigger="cron",
-            hour=12,
-            minute=21,
+            hour=0,
+            minute=5,
             timezone=vietnam_tz,
             id="update_completed_bookings",
             name="Cập nhật booking đã hoàn thành",
@@ -125,8 +125,8 @@ def init_scheduler(app):
         scheduler.add_job(
             func=lambda: deactivate_expired_coupons(app),
             trigger="cron",
-            hour=12,
-            minute=22,
+            hour=0,
+            minute=10,
             timezone=vietnam_tz,
             id="deactivate_expired_coupons",
             name="Tắt các coupon đã hết hạn",
