@@ -35,8 +35,9 @@ class Tour_Schedules(db.Model):
     bookings = relationship("Bookings", back_populates="schedule")
 
     def __init__(self, tour_id, departure_date, return_date, available_seats,
-                 price_adult, price_child=None, price_infant=None, status=ScheduleStatusEnum.AVAILABLE.value):
-        self.schedule_id = str(uuid.uuid4())
+             price_adult, price_child=None, price_infant=None, status=ScheduleStatusEnum.AVAILABLE.value,
+             schedule_id=None):
+        self.schedule_id = schedule_id or str(uuid.uuid4())
         self.tour_id = tour_id
         self.departure_date = departure_date
         self.return_date = return_date

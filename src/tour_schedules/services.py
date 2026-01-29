@@ -1,9 +1,10 @@
 
 from datetime import date
+import uuid
 from flask import current_app, jsonify, request
 from src.marshmallow.library_ma_tour_schedules import tour_schedule_create_schema, tour_schedule_schema, tour_schedule_update_schema, tour_schedule_detail_schema
 from src.model.model_tour import Tours
-from src.model.model_tour_schedule import Tour_Schedules
+from src.model.model_tour_schedule import ScheduleStatusEnum, Tour_Schedules
 from src.extension import db
 
 def create_tour_schedules_admin_service():
@@ -153,6 +154,8 @@ def update_tour_schedule_service(tour_id):
         
         updated_ids = set()
         errors = []
+        created_count = 0
+        updated_count = 0
 
         for idx, item in enumerate(schedules_data):
             errors_item = tour_schedule_update_schema.validate(item)
@@ -162,55 +165,162 @@ def update_tour_schedule_service(tour_id):
 
             schedule_id = item.get("schedule_id")
             available_seats_new = item.get("available_seats")
+            departure_date_new = item.get("departure_date")
+            return_date_new = item.get("return_date")
+            price_adult_new = item.get("price_adult")
+            price_child_new = item.get("price_child") or 0
+            price_infant_new = item.get("price_infant") or 0
 
-            if schedule_id and schedule_id in existing_ids:
-                schedule = Tour_Schedules.query.get(schedule_id)
-                
-                if available_seats_new < schedule.booked_seats:
+            if schedule_id:
+                try:
+                    uuid.UUID(schedule_id)
+                except ValueError:
                     errors.append({
                         "index": idx,
-                        "schedule_id": schedule_id,
-                        "message": f"Số ghế khả dụng ({available_seats_new}) không thể nhỏ hơn số ghế đã đặt ({schedule.booked_seats})"
+                        "message": "schedule_id không hợp lệ (phải là UUID)"
                     })
-                    continue  
+                    continue
 
-                schedule.departure_date = item.get("departure_date")
-                schedule.return_date = item.get("return_date")
-                schedule.available_seats = available_seats_new
-                schedule.price_adult = item.get("price_adult")
-                schedule.price_child = item.get("price_child")
-                schedule.price_infant = item.get("price_infant")
-                
-                updated_ids.add(schedule_id)
+            if available_seats_new <= 0:
+                errors.append({"index": idx, "message": "Số chỗ phải > 0"})
+                continue
 
-            else:
+            if price_adult_new <= 0:
+                errors.append({"index": idx, "message": "Giá người lớn phải > 0"})
+                continue
+
+            if price_child_new >= price_adult_new:
+                errors.append({"index": idx, "message": "Giá trẻ em phải < giá người lớn"})
+                continue
+
+            if price_infant_new >= price_child_new and price_child_new > 0:
+                errors.append({"index": idx, "message": "Giá sơ sinh phải < giá trẻ em"})
+                continue
+
+            if return_date_new <= departure_date_new:
+                errors.append({"index": idx, "message": "Ngày về phải sau ngày đi"})
+                continue
+
+            if not schedule_id:
+                existing = Tour_Schedules.query.filter_by(
+                    tour_id=tour_id,
+                    departure_date=departure_date_new
+                ).first()
+                if existing:
+                    errors.append({"index": idx, "message": "Ngày khởi hành này đã tồn tại cho tour"})
+                    continue
+
                 new_schedule = Tour_Schedules(
                     tour_id=tour_id,
-                    departure_date=item.get("departure_date"),
-                    return_date=item.get("return_date"),
+                    departure_date=departure_date_new,
+                    return_date=return_date_new,
                     available_seats=available_seats_new,
-                    price_adult=item.get("price_adult"),
-                    price_child=item.get("price_child"),
-                    price_infant=item.get("price_infant")
+                    price_adult=price_adult_new,
+                    price_child=price_child_new,
+                    price_infant=price_infant_new
                 )
+                if new_schedule.available_seats <= 0:
+                    new_schedule.status = ScheduleStatusEnum.FULL.value
+                else:
+                    new_schedule.status = ScheduleStatusEnum.AVAILABLE.value
+                
                 db.session.add(new_schedule)
+                created_count += 1
+                continue
 
-        for schedule in existing_schedules:
-            if schedule.schedule_id not in updated_ids:
-                db.session.delete(schedule)
+            schedule = Tour_Schedules.query.get(schedule_id)
+            if not schedule:
+                existing = Tour_Schedules.query.filter_by(
+                    tour_id=tour_id,
+                    departure_date=departure_date_new
+                ).first()
+                if existing:
+                    errors.append({"index": idx, "message": "Ngày khởi hành này đã tồn tại cho tour"})
+                    continue
+
+                new_schedule = Tour_Schedules(
+                    tour_id=tour_id,
+                    departure_date=departure_date_new,
+                    return_date=return_date_new,
+                    available_seats=available_seats_new,
+                    price_adult=price_adult_new,
+                    price_child=price_child_new,
+                    price_infant=price_infant_new
+                )
+                new_schedule.schedule_id = schedule_id  
+                if new_schedule.available_seats <= 0:
+                    new_schedule.status = ScheduleStatusEnum.FULL.value
+                else:
+                    new_schedule.status = ScheduleStatusEnum.AVAILABLE.value
+                
+                db.session.add(new_schedule)
+                created_count += 1
+                updated_ids.add(schedule_id) 
+                continue
+
+            if schedule.tour_id != tour_id:
+                errors.append({
+                    "index": idx,
+                    "schedule_id": schedule_id,
+                    "message": "Lịch không thuộc tour này"
+                })
+                continue
+
+            # check available_seats vs booked_seats
+            if available_seats_new < schedule.booked_seats:
+                errors.append({
+                    "index": idx,
+                    "schedule_id": schedule_id,
+                    "message": f"Số ghế khả dụng ({available_seats_new}) không thể nhỏ hơn số ghế đã đặt ({schedule.booked_seats})"
+                })
+                continue
+
+            # Check departure_date 
+            existing = Tour_Schedules.query.filter(
+                Tour_Schedules.tour_id == tour_id,
+                Tour_Schedules.departure_date == departure_date_new,
+                Tour_Schedules.schedule_id != schedule_id
+            ).first()
+            if existing:
+                errors.append({"index": idx, "message": "Ngày khởi hành này đã tồn tại cho tour"})
+                continue
+
+            schedule.departure_date = departure_date_new
+            schedule.return_date = return_date_new
+            schedule.available_seats = available_seats_new
+            schedule.price_adult = price_adult_new
+            schedule.price_child = price_child_new
+            schedule.price_infant = price_infant_new
+            
+            # Update status 
+            if schedule.available_seats <= 0:
+                schedule.status = ScheduleStatusEnum.FULL.value
+            else:
+                schedule.status = ScheduleStatusEnum.AVAILABLE.value
+            
+            updated_ids.add(schedule_id)
+            updated_count += 1
 
         if errors:
             db.session.rollback()
             return jsonify({
                 "message": "Cập nhật thất bại do có lỗi",
+                "total_sent": len(schedules_data),
+                "total_updated": updated_count,
+                "total_created": created_count,
                 "errors": errors
             }), 400
         
         db.session.commit()
-        return jsonify({"message": "Cập nhật lịch trình khởi hành thành công"}), 200
+        return jsonify({
+            "message": "Cập nhật lịch trình khởi hành thành công",
+            "total_updated": updated_count,
+            "total_created": created_count
+        }), 200
 
     except Exception as e:
         db.session.rollback()
+        current_app.logger.error(f"Lỗi cập nhật lịch trình: {str(e)}", exc_info=True)
         return jsonify({"message": f"Lỗi server: {str(e)}"}), 500
     
 #get tour schedule detail
