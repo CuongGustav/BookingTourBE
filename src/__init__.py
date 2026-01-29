@@ -15,7 +15,7 @@ from src.coupon.controller import coupon
 from src.booking.controller import booking
 from src.booking_passengers.controller import booking_passengers
 from src.payment.controller import payment
-from src.update_status_completed_booking import init_scheduler
+from src.scheduler import init_scheduler
 from src.reviews.controller import reviews
 from src.statics.controller import statics
 

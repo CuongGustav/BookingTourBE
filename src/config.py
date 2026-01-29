@@ -15,7 +15,7 @@ fe_url = os.getenv("FE_URL")
 print(f"DB_URL: {'Found' if db_url else 'Not found'}")
 print(f"DATABASE_URL: {'Found' if database_url else 'Not found'}")
 print(f"MYSQL_URL: {'Found' if mysql_url else 'Not found'}")
-print(f"FE_URL: {fe_url if fe_url else 'Not found'}")  # ← SỬA DÒNG NÀY
+print(f"FE_URL: {fe_url if fe_url else 'Not found'}")  
 print(f"REDIS_PUBLIC_URL/REDIS_URL: {'Found' if redis_url else 'Not found'}")
 print("=" * 50)
 
